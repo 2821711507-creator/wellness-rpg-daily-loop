@@ -35,6 +35,20 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     const result = generateWeeklyPlan({ weekStart: toLocalDateKey(getMonday(now())), preferences, smoothieItems: state.smoothie, activityTemplates })
     return applyMutation(result)
   }
+  const complete = (id: string) => setState(current => {
+    const date = toLocalDateKey(now())
+    const weekStart = toLocalDateKey(getMonday(now()))
+    let weeklyPlan = current.weeklyPlan
+    if (weeklyPlan?.weekStart === weekStart) {
+      const plannedId = id === 'activity'
+        ? weeklyPlan.activities.find(item => item.date === date)?.id
+        : id === 'meal'
+          ? weeklyPlan.meals.find(item => item.date === date && item.kind === 'smoothie' && !item.completed)?.id
+          : undefined
+      if (plannedId) weeklyPlan = setPlannedItemCompleted(weeklyPlan, plannedId, true)
+    }
+    return { ...current, weeklyPlan, game: completeQuest(current.game, id, `${id}-${date}`) }
+  })
   return {
     state,
     warning: loaded.warning,
@@ -42,7 +56,7 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     onboard: (profile: UserProfile) => setState(current => ({ ...current, profile, nutritionTarget: calculateNutritionTarget(profile) })),
     setSmoothie: (smoothie: SmoothieItem[]) => setState(current => ({ ...current, smoothie })),
     setActivity: (selectedActivityId: string) => setState(current => ({ ...current, selectedActivityId })),
-    complete: (id: string) => setState(current => ({ ...current, game: completeQuest(current.game, id, `${id}-${toLocalDateKey(now())}`) })),
+    complete,
     setBase: (base: AvatarBase) => setState(current => ({ ...current, avatar: selectBase(current.avatar, base) })),
     generatePlan,
     clearPlan: () => setState(current => ({ ...current, weeklyPlan: undefined })),
