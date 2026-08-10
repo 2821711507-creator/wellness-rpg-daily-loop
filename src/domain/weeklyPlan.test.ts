@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { SmoothieItem } from './smoothie'
 import {
+  calculateWeeklySummary,
   generateWeeklyPlan,
   getMonday,
   getWeekDateKeys,
   MEAL_SLOT_LABELS,
+  movePlannedActivity,
+  movePlannedMeal,
+  normalizeWeeklyPlan,
   ORDERED_MEAL_SLOTS,
+  replacePlannedActivity,
+  setPlannedItemCompleted,
   toLocalDateKey,
   type PlannedActivity,
   type PlannedMeal,
@@ -141,5 +147,89 @@ describe('weekly plan generation', () => {
     const first = generate()
     const second = generate()
     expect(first).toEqual(second)
+  })
+})
+
+describe('weekly plan mutations and summary', () => {
+  function createPlan() {
+    const result = generateWeeklyPlan({
+      weekStart: '2026-08-10',
+      preferences: { mealsPerDay: 3, smoothieSlots: ['breakfast'], activitiesPerWeek: 3, activityMix: { gym: 1, home: 1, walk: 1 } },
+      smoothieItems: [{ ingredientId: 'oats', grams: 40 }],
+      activityTemplates,
+    })
+    if (!result.ok) throw new Error(result.message)
+    return result.plan
+  }
+
+  it('moves a meal to a free date without mutating the original', () => {
+    const plan = createPlan()
+    const meal = plan.meals.find(item => item.date === '2026-08-10' && item.slot === 'breakfast')!
+    const withoutTargetBreakfast = { ...plan, meals: plan.meals.filter(item => !(item.date === '2026-08-11' && item.slot === 'breakfast')) }
+    const result = movePlannedMeal(withoutTargetBreakfast, meal.id, '2026-08-11')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.plan.meals.find(item => item.id === meal.id)?.date).toBe('2026-08-11')
+    expect(withoutTargetBreakfast.meals.find(item => item.id === meal.id)?.date).toBe('2026-08-10')
+  })
+
+  it('rejects a duplicate meal slot and dates outside the week', () => {
+    const plan = createPlan()
+    const meal = plan.meals.find(item => item.date === '2026-08-10' && item.slot === 'breakfast')!
+    expect(movePlannedMeal(plan, meal.id, '2026-08-11')).toEqual({ ok: false, message: '선택한 날짜에 같은 끼니가 이미 있어요.' })
+    expect(movePlannedMeal(plan, meal.id, '2026-08-20')).toEqual({ ok: false, message: '이번 주 안의 날짜를 선택해 주세요.' })
+  })
+
+  it('moves an activity to an empty date and rejects a second activity', () => {
+    const plan = createPlan()
+    const activity = plan.activities[0]
+    const moved = movePlannedActivity(plan, activity.id, '2026-08-13')
+    expect(moved.ok && moved.plan.activities.find(item => item.id === activity.id)?.date).toBe('2026-08-13')
+    expect(plan.activities[0].date).toBe('2026-08-10')
+    expect(movePlannedActivity(plan, activity.id, '2026-08-12')).toEqual({ ok: false, message: '선택한 날짜에 운동이 이미 있어요.' })
+  })
+
+  it('returns readable errors for missing items', () => {
+    const plan = createPlan()
+    expect(movePlannedMeal(plan, 'missing', '2026-08-11')).toEqual({ ok: false, message: '이동할 식사를 찾지 못했어요.' })
+    expect(movePlannedActivity(plan, 'missing', '2026-08-11')).toEqual({ ok: false, message: '이동할 운동을 찾지 못했어요.' })
+  })
+
+  it('replaces an activity while preserving completion and immutability', () => {
+    const original = createPlan()
+    const completed = setPlannedItemCompleted(original, original.activities[0].id, true)
+    const result = replacePlannedActivity(completed, completed.activities[0].id, 'walk-basic', activityTemplates)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.plan.activities[0]).toMatchObject({ templateId: 'walk-basic', completed: true })
+    expect(completed.activities[0].templateId).toBe('gym-basic')
+  })
+
+  it('rejects unknown replacement templates and activity ids', () => {
+    const plan = createPlan()
+    expect(replacePlannedActivity(plan, plan.activities[0].id, 'missing', activityTemplates)).toEqual({ ok: false, message: '선택한 대안 운동을 찾지 못했어요.' })
+    expect(replacePlannedActivity(plan, 'missing', 'walk-basic', activityTemplates)).toEqual({ ok: false, message: '교체할 운동을 찾지 못했어요.' })
+  })
+
+  it('calculates planned and completed totals by activity environment', () => {
+    let plan = createPlan()
+    plan = setPlannedItemCompleted(plan, plan.meals[0].id, true)
+    plan = setPlannedItemCompleted(plan, plan.activities[0].id, true)
+    expect(calculateWeeklySummary(plan, activityTemplates)).toEqual({
+      plannedMeals: 21,
+      smoothieMeals: 7,
+      plannedActivities: 3,
+      activityCounts: { gym: 1, home: 1, walk: 1 },
+      completedItems: 2,
+      totalItems: 24,
+    })
+  })
+
+  it('normalizes missing activity templates to the basic walk', () => {
+    const plan = createPlan()
+    const invalid = { ...plan, activities: plan.activities.map((item, index) => index === 0 ? { ...item, templateId: 'removed-template' } : item) }
+    const result = normalizeWeeklyPlan(invalid, activityTemplates)
+    expect(result.plan.activities[0].templateId).toBe('walk-basic')
+    expect(result.warning).toBe('찾을 수 없는 운동을 기본 산보로 바꿨어요.')
   })
 })

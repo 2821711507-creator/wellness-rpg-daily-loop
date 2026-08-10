@@ -45,6 +45,17 @@ export type PlanGenerationResult =
   | { ok: true; plan: WeeklyPlan }
   | { ok: false; message: string }
 
+export type PlanMutationResult = PlanGenerationResult
+
+export interface WeeklySummary {
+  plannedMeals: number
+  smoothieMeals: number
+  plannedActivities: number
+  activityCounts: Record<ActivityEnvironment, number>
+  completedItems: number
+  totalItems: number
+}
+
 export const ORDERED_MEAL_SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack']
 export const MEAL_SLOT_LABELS: Record<MealSlot, string> = {
   breakfast: '아침', lunch: '점심', dinner: '저녁', snack: '간식',
@@ -143,5 +154,68 @@ export function generateWeeklyPlan(input: GenerateWeeklyPlanInput): PlanGenerati
       meals,
       activities,
     },
+  }
+}
+
+function includesDate(plan: WeeklyPlan, date: string): boolean {
+  return getWeekDateKeys(plan.weekStart).includes(date)
+}
+
+export function movePlannedMeal(plan: WeeklyPlan, mealId: string, targetDate: string): PlanMutationResult {
+  const meal = plan.meals.find(item => item.id === mealId)
+  if (!meal) return { ok: false, message: '이동할 식사를 찾지 못했어요.' }
+  if (!includesDate(plan, targetDate)) return { ok: false, message: '이번 주 안의 날짜를 선택해 주세요.' }
+  if (plan.meals.some(item => item.id !== mealId && item.date === targetDate && item.slot === meal.slot)) {
+    return { ok: false, message: '선택한 날짜에 같은 끼니가 이미 있어요.' }
+  }
+  return { ok: true, plan: { ...plan, meals: plan.meals.map(item => item.id === mealId ? { ...item, date: targetDate } : item) } }
+}
+
+export function movePlannedActivity(plan: WeeklyPlan, activityId: string, targetDate: string): PlanMutationResult {
+  if (!plan.activities.some(item => item.id === activityId)) return { ok: false, message: '이동할 운동을 찾지 못했어요.' }
+  if (!includesDate(plan, targetDate)) return { ok: false, message: '이번 주 안의 날짜를 선택해 주세요.' }
+  if (plan.activities.some(item => item.id !== activityId && item.date === targetDate)) {
+    return { ok: false, message: '선택한 날짜에 운동이 이미 있어요.' }
+  }
+  return { ok: true, plan: { ...plan, activities: plan.activities.map(item => item.id === activityId ? { ...item, date: targetDate } : item) } }
+}
+
+export function replacePlannedActivity(plan: WeeklyPlan, activityId: string, replacementTemplateId: string, templates: ActivityTemplate[]): PlanMutationResult {
+  if (!plan.activities.some(item => item.id === activityId)) return { ok: false, message: '교체할 운동을 찾지 못했어요.' }
+  if (!templates.some(item => item.id === replacementTemplateId)) return { ok: false, message: '선택한 대안 운동을 찾지 못했어요.' }
+  return { ok: true, plan: { ...plan, activities: plan.activities.map(item => item.id === activityId ? { ...item, templateId: replacementTemplateId } : item) } }
+}
+
+export function setPlannedItemCompleted(plan: WeeklyPlan, itemId: string, completed: boolean): WeeklyPlan {
+  return {
+    ...plan,
+    meals: plan.meals.map(item => item.id === itemId ? { ...item, completed } : item),
+    activities: plan.activities.map(item => item.id === itemId ? { ...item, completed } : item),
+  }
+}
+
+export function normalizeWeeklyPlan(plan: WeeklyPlan, templates: ActivityTemplate[]): { plan: WeeklyPlan; warning?: string } {
+  const knownIds = new Set(templates.map(item => item.id))
+  const hasUnknown = plan.activities.some(item => !knownIds.has(item.templateId))
+  if (!hasUnknown) return { plan }
+  return {
+    plan: { ...plan, activities: plan.activities.map(item => knownIds.has(item.templateId) ? item : { ...item, templateId: 'walk-basic' }) },
+    warning: '찾을 수 없는 운동을 기본 산보로 바꿨어요.',
+  }
+}
+
+export function calculateWeeklySummary(plan: WeeklyPlan, templates: ActivityTemplate[]): WeeklySummary {
+  const activityCounts: Record<ActivityEnvironment, number> = { gym: 0, home: 0, walk: 0 }
+  for (const activity of plan.activities) {
+    const environment = templates.find(item => item.id === activity.templateId)?.environment
+    if (environment) activityCounts[environment] += 1
+  }
+  return {
+    plannedMeals: plan.meals.length,
+    smoothieMeals: plan.meals.filter(item => item.kind === 'smoothie').length,
+    plannedActivities: plan.activities.length,
+    activityCounts,
+    completedItems: [...plan.meals, ...plan.activities].filter(item => item.completed).length,
+    totalItems: plan.meals.length + plan.activities.length,
   }
 }
