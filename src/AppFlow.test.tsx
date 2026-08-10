@@ -8,8 +8,8 @@ describe('daily loop', () => {
   it('onboards and rewards a completed activity quest once', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '모험 시작' }))
-    expect(screen.getByRole('heading', { name: '오늘의 모험' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '시작하기' }))
+    expect(screen.getByRole('heading', { name: '오늘' })).toBeInTheDocument()
     expect(screen.getByText(/목표 1697 kcal/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /오늘의 운동 완료/ }))
     expect(screen.getByText('1/3')).toBeInTheDocument()
