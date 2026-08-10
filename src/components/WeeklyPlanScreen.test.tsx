@@ -63,6 +63,7 @@ describe('WeeklyPlanScreen', () => {
 
     await user.click(trigger)
     const dialog = screen.getByRole('dialog', { name: '계획 날짜 이동' })
+    expect(within(dialog).getByRole('button', { name: '닫기' })).toHaveFocus()
     await user.selectOptions(within(dialog).getByRole('combobox', { name: '이동할 날짜' }), '2026-08-11')
     await user.click(within(dialog).getByRole('button', { name: '이동하기' }))
     expect(screen.getByRole('alert')).toHaveTextContent('같은 끼니가 이미 있어요')
