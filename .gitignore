@@ -1,6 +1,7 @@
 # Local design and brainstorming workspace
 .superpowers/
 .impeccable/
+.worktrees/
 
 # Dependencies and build output
 node_modules/
