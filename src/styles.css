@@ -1,0 +1,7 @@
+:root { font-family: system-ui, sans-serif; color: #172033; background: #f7f1df; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; overflow-x: clip; }
+button, input, select { font: inherit; min-height: 44px; }
+:focus-visible { outline: 3px solid #146c63; outline-offset: 3px; }
+main { min-height: 100vh; padding: 24px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
