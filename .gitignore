@@ -7,6 +7,9 @@
 node_modules/
 dist/
 coverage/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 
 # Local environment files
 .env
@@ -17,6 +20,7 @@ coverage/
 .DS_Store
 *.swp
 *.swo
+* 2.css
 
 # Logs
 *.log
