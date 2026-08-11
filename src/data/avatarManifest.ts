@@ -14,11 +14,13 @@ export const AVATAR_PARTS: AvatarPart[] = [
   { id:'bottom-shorts', name:'반바지', slot:'bottom', selectionSlot:'bottom', unlockLevel:6, author:'project', license:'project-owned' },
   { id:'shoes-trainers', name:'운동화', slot:'shoes', selectionSlot:'shoes', unlockLevel:2, author:'project', license:'project-owned' },
   { id:'shoes-walk', name:'워킹화', slot:'shoes', selectionSlot:'shoes', unlockLevel:5, author:'project', license:'project-owned' },
+  { id:'hat-wellness-cap', name:'웰니스 캡', slot:'hat', selectionSlot:'hat', unlockLevel:8, author:'project', license:'project-owned' },
+  { id:'accessory-bottle-pouch', name:'물병 크로스백', slot:'accessory', selectionSlot:'accessory', unlockLevel:9, author:'project', license:'project-owned' },
 ]
 
 export const AVATAR_DEFAULTS: AvatarState = {
   gender:'male',
   skin:'medium',
-  unlockedIds:AVATAR_PARTS.filter(part => part.selectionSlot !== 'base').map(part => part.id),
-  equipped:{ hair:'hair-short', top:'top-runner', bottom:'bottom-pants', shoes:'shoes-trainers' },
+  unlockedIds:['hair-short', 'hair-bob'],
+  equipped:{ hair:'hair-short' },
 }
