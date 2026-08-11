@@ -98,7 +98,7 @@ export interface WeeklyInsight {
 }
 export interface InsightInput {
   current:WeeklyRecordSummary; previous:WeeklyRecordSummary|null;
-  trend:ReturnType<typeof summarizeWeightTrend>; currentWeightKg:number|null
+  trend:ReturnType<typeof summarizeWeightTrend>; currentWeightKg:number|null; previousChangeKg:number|null
 }
 export const INSIGHT_EVIDENCE: Evidence[]
 export function generateWeeklyInsight(input:InsightInput):WeeklyInsight
