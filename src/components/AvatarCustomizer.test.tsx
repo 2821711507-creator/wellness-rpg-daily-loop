@@ -89,4 +89,21 @@ describe('layered avatar UI', () => {
     expect(contrastRatio(muted, '#ffffff')).toBeGreaterThanOrEqual(4.5)
     expect(contrastRatio(blueStrong, '#dfefff')).toBeGreaterThanOrEqual(4.5)
   })
+
+  it('keeps a non-overlapping integer-scale preview sticky on responsive screens', () => {
+    const responsiveStyles = avatarStyles.slice(avatarStyles.indexOf('@media(max-width:1023px)'))
+    expect(responsiveStyles).not.toContain('.avatar-preview-panel{position:static')
+    expect(responsiveStyles).toContain('.avatar-studio{grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:12px}')
+    expect(responsiveStyles).toContain('.avatar-preview-panel{top:8px;min-height:auto;padding:16px}')
+    expect(responsiveStyles).toContain('.avatar-stage{min-height:304px;margin-top:12px}')
+    expect(responsiveStyles).toContain('.avatar-stage .avatar-renderer{width:192px;height:288px}')
+    expect(responsiveStyles).toContain('.avatar-studio{grid-template-columns:120px minmax(0,1fr);gap:8px;padding-left:12px;padding-right:12px}')
+    expect(responsiveStyles).toContain('.avatar-stage .avatar-renderer{width:96px;height:144px}')
+    expect(responsiveStyles).toContain('.avatar-choice-grid{grid-template-columns:1fr}')
+  })
+
+  it('distinguishes selected empty slots from dashed locked rewards', () => {
+    expect(avatarStyles).toContain('.avatar-choice-grid button:disabled{cursor:not-allowed;color:var(--muted);background:var(--soft);border-style:dashed}')
+    expect(avatarStyles).toContain('.avatar-empty-choice{border-style:solid!important}')
+  })
 })
