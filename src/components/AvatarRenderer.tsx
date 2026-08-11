@@ -83,6 +83,9 @@ export function AvatarRenderer({ state, className = '' }: { state:AvatarState; c
     SKIN_NAMES[state.skin],
     ...(['hair', 'top', 'bottom', 'shoes', 'hat', 'accessory'] as AvatarSelectionSlot[]).map(slot => partName(state, slot)),
   ].filter(Boolean).join(', ')
+  const rasterBaseSrc = state.equipped.top === 'top-runner'
+    ? `/avatar/v2/${state.gender}-top-runner.png`
+    : `/avatar/v2/base-${state.gender}.png`
 
   return <svg className={`avatar-renderer ${className}`.trim()} viewBox="0 0 96 144" role="img" aria-label={name} shapeRendering="crispEdges" style={style}>
     {getAvatarLayerIds(state).map(id => {
@@ -90,8 +93,8 @@ export function AvatarRenderer({ state, className = '' }: { state:AvatarState; c
       const isLegacyHair = id.startsWith('hair-')
       return <g key={id} data-layer-id={id} style={LAYER_PALETTES[id]}>
         {isBase
-          ? <image data-raster-base href={`/avatar/v2/${id}.png`} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
-          : !isLegacyHair && <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
+          ? <image data-raster-base href={rasterBaseSrc} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
+          : !isLegacyHair && id !== 'top-runner' && <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
         }
       </g>
     })}

@@ -32,6 +32,18 @@ describe('AvatarRenderer', () => {
     }
   })
 
+  it('uses the matching raster runner outfit without drawing the legacy top pixels', () => {
+    const state:AvatarState = {
+      ...AVATAR_DEFAULTS,
+      gender:'female',
+      unlockedIds:[...AVATAR_DEFAULTS.unlockedIds, 'top-runner'],
+      equipped:{ ...AVATAR_DEFAULTS.equipped, top:'top-runner' },
+    }
+    render(<AvatarRenderer state={state}/>)
+    expect(screen.getByRole('img').querySelector('[data-raster-base]')).toHaveAttribute('href', '/avatar/v2/female-top-runner.png')
+    expect(screen.getByRole('img').querySelector('[data-layer-id="top-runner"] rect')).toBeNull()
+  })
+
   it('uses only exact integer scales for the Today avatar card', () => {
     expect(appStyles).toContain('.avatar-renderer{display:block;width:96px;height:144px')
     expect(appStyles).toContain('.avatar-card .avatar-renderer{width:192px;height:288px}')
