@@ -35,6 +35,31 @@ describe('useWellnessGame weekly plans', () => {
 
     act(() => result.current.complete('recovery'))
     expect(result.current.state.avatar.unlockedIds.filter(id => id === 'shoes-trainers')).toHaveLength(1)
+    expect(result.current.avatarUnlockMessage).toBe('')
+  })
+
+  it('announces only the rewards from the latest level transition', () => {
+    const seed = renderHook(() => useWellnessGame())
+    const repository = memoryRepository({
+      ...seed.result.current.state,
+      game:{
+        ...seed.result.current.state.game,
+        xp:90,
+        quests:seed.result.current.state.game.quests.map(quest => quest.id === 'activity' ? { ...quest, xp:100 } : quest),
+      },
+    })
+    seed.unmount()
+    localStorage.clear()
+
+    const { result } = renderHook(() => useWellnessGame({ repository, now:() => new Date(2026, 7, 11, 7) }))
+    act(() => result.current.complete('recovery'))
+    expect(result.current.avatarUnlockMessage).toContain('운동화')
+
+    act(() => result.current.complete('activity'))
+    expect(result.current.state.game.level).toBe(3)
+    expect(result.current.avatarUnlockMessage).toContain('러닝복')
+    expect(result.current.avatarUnlockMessage).not.toContain('운동화')
+    expect(result.current.avatarUnlockMessage).not.toContain('웨이브 머리')
   })
 
   it('preserves legacy rewards below their level and does not repeat unlock announcements on remount', () => {

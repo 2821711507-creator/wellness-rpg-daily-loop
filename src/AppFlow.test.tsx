@@ -117,7 +117,9 @@ describe('daily loop', () => {
     await user.click(screen.getByRole('button', { name:/스무디 기록하기/ }))
     await user.click(screen.getByRole('button', { name:/오늘의 운동 완료/ }))
     await user.click(screen.getByRole('button', { name:/5분 스트레칭/ }))
+    expect(screen.getByRole('status')).toHaveTextContent('웨이브 머리, 운동화 아이템을 해금했어요.')
     await user.click(screen.getByRole('button', { name:'캐릭터 꾸미기' }))
+    expect(screen.getByRole('status')).toHaveTextContent('웨이브 머리, 운동화 아이템을 해금했어요.')
 
     const trainers = screen.getByRole('button', { name:'운동화' })
     expect(trainers).toBeEnabled()
