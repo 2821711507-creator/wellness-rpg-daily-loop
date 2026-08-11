@@ -3,23 +3,32 @@ import { render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { AVATAR_DEFAULTS, AVATAR_PARTS } from '../data/avatarManifest'
-import { AVATAR_FACE_FEATURES, AVATAR_PIXEL_LAYERS } from '../data/avatarPixelLayers'
+import { AVATAR_PIXEL_LAYERS } from '../data/avatarPixelLayers'
 import { getAvatarLayerIds, type AvatarSelectionSlot, type AvatarState } from '../domain/avatar'
 import { AvatarRenderer } from './AvatarRenderer'
 
 const appStyles = readFileSync('src/styles.css', 'utf8')
 
 describe('AvatarRenderer', () => {
-  it('renders the premium 96 by 144 grid and non-empty face groups for both genders', () => {
+  it('renders the premium 96 by 144 grid for both genders', () => {
     const { rerender } = render(<AvatarRenderer state={AVATAR_DEFAULTS}/>)
     for (const gender of ['male', 'female'] as const) {
       rerender(<AvatarRenderer state={{ ...AVATAR_DEFAULTS, gender }}/>)
       const avatar = screen.getByRole('img', { name:new RegExp(gender === 'male' ? '^남성 캐릭터' : '^여성 캐릭터') })
       expect(avatar).toHaveAttribute('viewBox', '0 0 96 144')
       expect(avatar).toHaveAttribute('shape-rendering', 'crispEdges')
-      for (const feature of AVATAR_FACE_FEATURES) {
-        expect(avatar.querySelector(`[data-face-feature="${feature}"]`)?.querySelectorAll('rect').length, `${gender} ${feature}`).toBeGreaterThan(0)
-      }
+    }
+  })
+
+  it('renders the approved raster base for each gender on the fixed canvas', () => {
+    const { rerender } = render(<AvatarRenderer state={AVATAR_DEFAULTS}/>)
+    for (const gender of ['male', 'female'] as const) {
+      rerender(<AvatarRenderer state={{ ...AVATAR_DEFAULTS, gender }}/>)
+      const image = screen.getByRole('img').querySelector('[data-raster-base]')
+      expect(image).toHaveAttribute('href', `/avatar/v2/base-${gender}.png`)
+      expect(image).toHaveAttribute('width', '96')
+      expect(image).toHaveAttribute('height', '144')
+      expect(image).toHaveStyle({ imageRendering:'pixelated' })
     }
   })
 

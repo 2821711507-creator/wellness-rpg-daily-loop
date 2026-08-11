@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { AVATAR_PARTS } from '../data/avatarManifest'
-import { AVATAR_FACE_FEATURES, AVATAR_PIXEL_LAYERS, type PixelFill, type PixelRect } from '../data/avatarPixelLayers'
+import { AVATAR_PIXEL_LAYERS, type PixelFill, type PixelRect } from '../data/avatarPixelLayers'
 import { getAvatarLayerIds, type AvatarSelectionSlot, type AvatarState } from '../domain/avatar'
 
 const SKIN_NAMES = { light:'밝은 피부', medium:'중간 피부', deep:'짙은 피부' } as const
@@ -87,11 +87,12 @@ export function AvatarRenderer({ state, className = '' }: { state:AvatarState; c
   return <svg className={`avatar-renderer ${className}`.trim()} viewBox="0 0 96 144" role="img" aria-label={name} shapeRendering="crispEdges" style={style}>
     {getAvatarLayerIds(state).map(id => {
       const isBase = id === 'base-male' || id === 'base-female'
+      const isLegacyHair = id.startsWith('hair-')
       return <g key={id} data-layer-id={id} style={LAYER_PALETTES[id]}>
-        <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
-        {isBase && AVATAR_FACE_FEATURES.map(feature => <g key={feature} data-face-feature={feature}>
-          <Pixels pixels={AVATAR_PIXEL_LAYERS[`${id}-${feature}`] ?? []}/>
-        </g>)}
+        {isBase
+          ? <image data-raster-base href={`/avatar/v2/${id}.png`} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
+          : !isLegacyHair && <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
+        }
       </g>
     })}
   </svg>
