@@ -33,7 +33,7 @@
 
 ```ts
 export interface WeightEntry { id:string; date:string; weightKg:number; recordedAt:string }
-export interface TrendPoint { date:string; weightKg:number; rollingAverageKg:number|null }
+export interface TrendPoint { date:string; weightKg:number|null; rollingAverageKg:number|null }
 export type WeightMutationResult = { ok:true; entries:WeightEntry[] } | { ok:false; message:string }
 export function upsertWeightEntry(entries:WeightEntry[], input:{date:string;weightKg:number;recordedAt:string}, today:string):WeightMutationResult
 export function deleteWeightEntry(entries:WeightEntry[], date:string):WeightEntry[]

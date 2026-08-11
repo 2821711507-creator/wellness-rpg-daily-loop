@@ -132,7 +132,7 @@ interface CompletionEvent {
 
 interface TrendPoint {
   date: string
-  weightKg: number
+  weightKg: number | null
   rollingAverageKg: number | null
 }
 
