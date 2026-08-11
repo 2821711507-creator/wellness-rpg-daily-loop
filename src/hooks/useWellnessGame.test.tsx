@@ -115,4 +115,28 @@ describe('useWellnessGame weekly plans', () => {
     act(() => result.current.complete('activity'))
     expect(result.current.state.completionEvents).toHaveLength(1)
   })
+
+  it('persists avatar gender, skin, and equipped parts', () => {
+    const first = renderHook(() => useWellnessGame())
+    act(() => first.result.current.setAvatarGender('female'))
+    act(() => first.result.current.setAvatarSkin('deep'))
+    act(() => first.result.current.equipAvatarItem('hair-wave'))
+    act(() => first.result.current.equipAvatarItem('top-walk'))
+    expect(first.result.current.state.avatar).toMatchObject({ gender:'female', skin:'deep', equipped:{ hair:'hair-wave', top:'top-walk' } })
+    first.unmount()
+
+    const restored = renderHook(() => useWellnessGame())
+    expect(restored.result.current.state.avatar).toMatchObject({ gender:'female', skin:'deep', equipped:{ hair:'hair-wave', top:'top-walk' } })
+  })
+
+  it('recovers only invalid avatar selections', () => {
+    const first = renderHook(() => useWellnessGame())
+    const saved = { ...first.result.current.state, game:{ ...first.result.current.state.game, coins:555 }, avatar:{ gender:'robot', skin:'orange', unlockedIds:[], equipped:{ top:'missing' } } }
+    first.unmount()
+    localStorage.setItem('wellness-rpg:v1', JSON.stringify(saved))
+    const restored = renderHook(() => useWellnessGame())
+    expect(restored.result.current.state.avatar).toMatchObject({ gender:'male', skin:'medium', equipped:{ top:'top-runner' } })
+    expect(restored.result.current.state.game.coins).toBe(555)
+    expect(restored.result.current.state.smoothie).toEqual(saved.smoothie)
+  })
 })

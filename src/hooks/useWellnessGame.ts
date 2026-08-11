@@ -3,7 +3,7 @@ import { calculateNutritionTarget, type NutritionTarget } from '../domain/nutrit
 import type { UserProfile } from '../domain/profile'
 import type { SmoothieItem } from '../domain/smoothie'
 import { completeQuest, type GameState } from '../domain/game'
-import { normalizeAvatarState, selectGender, type AvatarState, type AvatarGender } from '../domain/avatar'
+import { equipItem, normalizeAvatarState, selectGender, selectSkin, type AvatarState, type AvatarGender, type AvatarSkin } from '../domain/avatar'
 import { AVATAR_DEFAULTS } from '../data/avatarManifest'
 import { LocalStorageWellnessRepository } from '../repositories/localStorageWellnessRepository'
 import type { WellnessRepository } from '../repositories/wellnessRepository'
@@ -79,6 +79,9 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     setActivity: (selectedActivityId: string) => setState(current => ({ ...current, selectedActivityId })),
     complete,
     setBase: (gender: AvatarGender) => setState(current => ({ ...current, avatar: selectGender(current.avatar, gender) })),
+    setAvatarGender: (gender: AvatarGender) => setState(current => ({ ...current, avatar:selectGender(current.avatar, gender) })),
+    setAvatarSkin: (skin: AvatarSkin) => setState(current => ({ ...current, avatar:selectSkin(current.avatar, skin) })),
+    equipAvatarItem: (itemId: string) => setState(current => ({ ...current, avatar:equipItem(current.avatar, itemId) })),
     generatePlan,
     clearPlan: () => setState(current => ({ ...current, weeklyPlan: undefined })),
     moveMeal: (id: string, date: string) => state.weeklyPlan ? applyMutation(movePlannedMeal(state.weeklyPlan, id, date)) : ({ ok: false, message: '주간 계획이 없어요.' } as PlanMutationResult),
