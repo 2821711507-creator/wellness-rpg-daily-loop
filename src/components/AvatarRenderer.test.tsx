@@ -44,6 +44,28 @@ describe('AvatarRenderer', () => {
     expect(screen.getByRole('img').querySelector('[data-layer-id="top-runner"] rect')).toBeNull()
   })
 
+  it('uses raster trainers for both the base and runner outfit combinations', () => {
+    const equippedStates:AvatarState[] = [
+      {
+        ...AVATAR_DEFAULTS,
+        gender:'male',
+        unlockedIds:[...AVATAR_DEFAULTS.unlockedIds, 'shoes-trainers'],
+        equipped:{ ...AVATAR_DEFAULTS.equipped, shoes:'shoes-trainers' },
+      },
+      {
+        ...AVATAR_DEFAULTS,
+        gender:'female',
+        unlockedIds:[...AVATAR_DEFAULTS.unlockedIds, 'top-runner', 'shoes-trainers'],
+        equipped:{ ...AVATAR_DEFAULTS.equipped, top:'top-runner', shoes:'shoes-trainers' },
+      },
+    ]
+    const { rerender } = render(<AvatarRenderer state={equippedStates[0]}/>)
+    expect(screen.getByRole('img').querySelector('[data-raster-base]')).toHaveAttribute('href', '/avatar/v2/male-shoes-trainers.png')
+    rerender(<AvatarRenderer state={equippedStates[1]}/>)
+    expect(screen.getByRole('img').querySelector('[data-raster-base]')).toHaveAttribute('href', '/avatar/v2/female-top-runner-shoes-trainers.png')
+    expect(screen.getByRole('img').querySelector('[data-layer-id="shoes-trainers"] rect')).toBeNull()
+  })
+
   it('uses only exact integer scales for the Today avatar card', () => {
     expect(appStyles).toContain('.avatar-renderer{display:block;width:96px;height:144px')
     expect(appStyles).toContain('.avatar-card .avatar-renderer{width:192px;height:288px}')
