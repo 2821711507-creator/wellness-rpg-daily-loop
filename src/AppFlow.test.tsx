@@ -44,15 +44,15 @@ describe('daily loop', () => {
 
   it('synchronizes today activity completion with the weekly summary', async () => {
     const user = userEvent.setup()
-    render(<App now={() => new Date(2026, 7, 10, 12)} />)
+    render(<App now={() => new Date(2026, 7, 12, 12)} />)
     await user.click(screen.getByRole('button', { name: '시작하기' }))
     await user.click(screen.getAllByRole('button', { name: '계획' })[0])
     await user.click(screen.getByRole('button', { name: '이번 주 계획 만들기' }))
     await user.click(screen.getByRole('button', { name: '오늘' }))
     await user.click(screen.getByRole('button', { name: '운동 완료' }))
     await user.click(screen.getAllByRole('button', { name: '계획' })[0])
-    expect(screen.getByText('완료 1/24')).toBeInTheDocument()
-    expect(screen.getByText(/완료됨/)).toBeInTheDocument()
+    expect(screen.getByText('완료 2/26')).toBeInTheDocument()
+    expect(screen.getAllByText(/완료됨/)).toHaveLength(2)
   })
 
   it('restores a generated weekly plan after remounting', async () => {
@@ -98,14 +98,14 @@ describe('daily loop', () => {
 
   it('counts a planned activity and its XP once in records', async () => {
     const user = userEvent.setup()
-    render(<App now={() => new Date(2026, 7, 10, 12)} />)
+    render(<App now={() => new Date(2026, 7, 12, 12)} />)
     await user.click(screen.getByRole('button', { name: '시작하기' }))
     await user.click(screen.getAllByRole('button', { name: '계획' })[0])
     await user.click(screen.getByRole('button', { name: '이번 주 계획 만들기' }))
     await user.click(screen.getByRole('button', { name: '오늘' }))
     await user.click(screen.getByRole('button', { name: '운동 완료' }))
     await user.click(screen.getAllByRole('button', { name: '기록' })[0])
-    expect(screen.getByText('1/3', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.getByText('2/5', { selector: 'strong' })).toBeInTheDocument()
     expect(screen.getByText('40', { selector: 'strong' })).toBeInTheDocument()
   })
 

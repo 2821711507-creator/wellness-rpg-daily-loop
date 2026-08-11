@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { activityTemplates } from '../data/activityTemplates'
 import { generateWeeklyPlan, type WeeklyPlan } from './weeklyPlan'
 import { parseWeeklyPlan } from './weeklyPlanValidation'
+import { reconcileApprovedTrainingWeek } from './weeklyTrainingGuidance'
 
 function validPlan() {
   const result = generateWeeklyPlan({
@@ -17,6 +18,13 @@ function validPlan() {
 describe('parseWeeklyPlan', () => {
   it('accepts a valid plan', () => {
     expect(parseWeeklyPlan(validPlan(), activityTemplates).plan).toEqual(validPlan())
+  })
+
+  it('accepts the approved guide and rejects malformed guide dates', () => {
+    const guided = reconcileApprovedTrainingWeek(validPlan())
+    expect(parseWeeklyPlan(guided, activityTemplates).plan?.trainingGuidance).toEqual(guided.trainingGuidance)
+    const invalid = { ...guided, trainingGuidance:{ ...guided.trainingGuidance!, days:[{ ...guided.trainingGuidance!.days[0], date:'2026-08-30' }] } }
+    expect(parseWeeklyPlan(invalid, activityTemplates).plan).toBeNull()
   })
 
   it.each([

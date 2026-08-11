@@ -193,6 +193,7 @@ describe('useWellnessGame weekly plans', () => {
     act(() => result.current.generatePlan({ mealsPerDay: 2, smoothieSlots: ['breakfast'], activitiesPerWeek: 2, activityMix: { gym: 1, home: 1, walk: 0 } }))
     const plan = result.current.state.weeklyPlan!
     expect(plan.weekStart).toBe('2026-08-10')
+    expect(plan.trainingGuidance?.days.find(day => day.date === '2026-08-11')).toMatchObject({ state:'completed', includesHiit:true })
     const meal = plan.meals.find(item => item.date === '2026-08-10' && item.slot === 'breakfast')!
     act(() => result.current.moveMeal(meal.id, '2026-08-11'))
     expect(result.current.mutationMessage).toBe('선택한 날짜에 같은 끼니가 이미 있어요.')
@@ -264,10 +265,10 @@ describe('useWellnessGame weekly plans', () => {
   })
 
   it('records a planned completion event and xp exactly once', () => {
-    const { result } = renderHook(() => useWellnessGame({ now:() => new Date(2026, 7, 10, 12) }))
+    const { result } = renderHook(() => useWellnessGame({ now:() => new Date(2026, 7, 12, 12) }))
     act(() => result.current.generatePlan({ mealsPerDay:2, smoothieSlots:['breakfast'], activitiesPerWeek:2, activityMix:{ gym:1, home:1, walk:0 } }))
     act(() => result.current.complete('activity'))
-    expect(result.current.state.completionEvents).toEqual([expect.objectContaining({ date:'2026-08-10', kind:'planned-activity', xpEarned:40 })])
+    expect(result.current.state.completionEvents).toEqual([expect.objectContaining({ date:'2026-08-12', kind:'planned-activity', xpEarned:40 })])
     act(() => result.current.complete('activity'))
     expect(result.current.state.completionEvents).toHaveLength(1)
   })

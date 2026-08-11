@@ -27,5 +27,17 @@ export function parseWeeklyPlan(value: unknown, templates: ActivityTemplate[]): 
     if (!isObject(activity) || typeof activity.id !== 'string' || !isDateKey(activity.date) || !weekDates.includes(activity.date) || typeof activity.templateId !== 'string' || typeof activity.completed !== 'boolean' || activityDates.has(activity.date)) return { plan: null, warning: invalidWarning }
     activityDates.add(activity.date)
   }
+  if (value.trainingGuidance !== undefined) {
+    const guide = value.trainingGuidance
+    if (!isObject(guide) || typeof guide.id !== 'string' || typeof guide.title !== 'string' || typeof guide.focus !== 'string' || typeof guide.safetyNote !== 'string' || !Array.isArray(guide.rules) || !guide.rules.every(rule => typeof rule === 'string') || !Array.isArray(guide.days)) return { plan:null, warning:invalidWarning }
+    const guideDates = new Set<string>()
+    for (const day of guide.days) {
+      if (!isObject(day) || !isDateKey(day.date) || !weekDates.includes(day.date) || guideDates.has(day.date) || !['skipped', 'completed', 'planned', 'conditional'].includes(String(day.state)) || !['rest', 'mixed', 'recovery', 'strength-upper', 'strength-lower-core', 'light-cardio'].includes(String(day.kind)) || typeof day.title !== 'string' || typeof day.summary !== 'string' || !Array.isArray(day.exercises) || !day.exercises.every(exercise => typeof exercise === 'string')) return { plan:null, warning:invalidWarning }
+      if (day.duration !== undefined && typeof day.duration !== 'string') return { plan:null, warning:invalidWarning }
+      if (day.fallback !== undefined && typeof day.fallback !== 'string') return { plan:null, warning:invalidWarning }
+      if (day.includesHiit !== undefined && typeof day.includesHiit !== 'boolean') return { plan:null, warning:invalidWarning }
+      guideDates.add(day.date)
+    }
+  }
   return normalizeWeeklyPlan(value as unknown as WeeklyPlan, templates)
 }

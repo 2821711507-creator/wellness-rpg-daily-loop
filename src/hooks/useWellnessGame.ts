@@ -14,6 +14,7 @@ import { parseWeeklyPlan } from '../domain/weeklyPlanValidation'
 import { appendCompletionEvent, type CompletionEvent } from '../domain/records'
 import { parseCompletionEvents, parseWeightEntries } from '../domain/recordsValidation'
 import { deleteWeightEntry, upsertWeightEntry, type WeightEntry } from '../domain/weight'
+import { reconcileApprovedTrainingWeek } from '../domain/weeklyTrainingGuidance'
 
 export interface WellnessState { version: 1; profile: UserProfile | null; nutritionTarget: NutritionTarget | null; smoothie: SmoothieItem[]; selectedActivityId: string; game: GameState; avatar: AvatarState; weeklyPlan?: WeeklyPlan; weightEntries?: WeightEntry[]; completionEvents?: CompletionEvent[] }
 const initial: WellnessState = { version: 1, profile: null, nutritionTarget: null, smoothie: [{ ingredientId: 'oats', grams: 40 }, { ingredientId: 'yogurt', grams: 150 }, { ingredientId: 'soy', grams: 200 }, { ingredientId: 'banana', grams: 100 }, { ingredientId: 'spinach', grams: 60 }], selectedActivityId: 'walk-basic', game: { level: 1, xp: 32, coins: 80, quests: [{ id: 'meal', title: '스무디 기록하기', kind: 'meal-log', xp: 20, coins: 10, completed: false }, { id: 'activity', title: '오늘의 운동 완료', kind: 'activity', xp: 40, coins: 20, completed: false }, { id: 'recovery', title: '5분 스트레칭', kind: 'recovery', xp: 15, coins: 5, completed: false }], processedEventIds: [] }, avatar: { ...AVATAR_DEFAULTS, unlockedIds:[...AVATAR_DEFAULTS.unlockedIds], equipped:{ ...AVATAR_DEFAULTS.equipped } }, weightEntries:[], completionEvents:[] }
@@ -32,7 +33,8 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     const normalizedAvatar = normalizeAvatarState(result.state.avatar)
     const avatar = grantAvatarUnlocks(normalizedAvatar, 0, result.state.game.level).state
     const game = rolloverDailyQuests(result.state.game, today)
-    return { state:{ ...result.state, game, avatar, weeklyPlan:parsedPlan.plan ?? undefined, weightEntries:weights.entries, completionEvents:events.events }, warning:warnings.join(' ') || undefined }
+    const weeklyPlan = parsedPlan.plan ? reconcileApprovedTrainingWeek(parsedPlan.plan) : undefined
+    return { state:{ ...result.state, game, avatar, weeklyPlan, weightEntries:weights.entries, completionEvents:events.events }, warning:warnings.join(' ') || undefined }
   })
   const [hookState, setHookState] = useState(() => ({ state:loaded.state, avatarUnlockMessage:'' }))
   const { state, avatarUnlockMessage } = hookState
@@ -46,7 +48,7 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
   }
   const generatePlan = (preferences: WeeklyPlanPreferences) => {
     const result = generateWeeklyPlan({ weekStart: toLocalDateKey(getMonday(now())), preferences, smoothieItems: state.smoothie, activityTemplates })
-    return applyMutation(result)
+    return applyMutation(result.ok ? { ok:true, plan:reconcileApprovedTrainingWeek(result.plan) } : result)
   }
   const complete = (id: string) => setHookState(currentHookState => {
     const current = currentHookState.state

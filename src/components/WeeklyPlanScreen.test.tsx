@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { activityTemplates } from '../data/activityTemplates'
 import { generateWeeklyPlan, type PlanMutationResult, type WeeklyPlan } from '../domain/weeklyPlan'
 import { WeeklyPlanScreen } from './WeeklyPlanScreen'
+import { reconcileApprovedTrainingWeek } from '../domain/weeklyTrainingGuidance'
 
 function createPlan(): WeeklyPlan {
   const result = generateWeeklyPlan({
@@ -51,6 +52,20 @@ describe('WeeklyPlanScreen', () => {
     expect(screen.getAllByText('스무디')).toHaveLength(7)
     expect(screen.getByText(/머신 전신 탐험 · 35분/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '계획 다시 만들기' })).toBeInTheDocument()
+  })
+
+  it('shows the approved recovery-aware training guide and exercise details', () => {
+    const plan = reconcileApprovedTrainingWeek(createPlan())
+    render(<WeeklyPlanScreen plan={plan} smoothieItems={[]} onGenerate={vi.fn()} onMoveMeal={() => noChange(plan)} onMoveActivity={() => noChange(plan)} onReplaceActivity={() => noChange(plan)} onRegenerate={vi.fn()} />)
+
+    expect(screen.getByRole('heading', { name:'이번 주 회복 우선 감량 루틴' })).toBeInTheDocument()
+    expect(screen.getAllByTestId('training-guide-day')).toHaveLength(7)
+    expect(screen.getByText(/유산소 30분 \+ 가벼운 근력 \+ 저녁 식사 후 HIIT/)).toBeInTheDocument()
+    expect(screen.getByText('머신 체스트 프레스')).toBeInTheDocument()
+    expect(screen.getByText('레그 프레스')).toBeInTheDocument()
+    expect(screen.getByText('이번 주 HIIT는 화요일 1회로 충분해요.')).toBeInTheDocument()
+    expect(screen.getByText('토요일 자유식을 위해 운동량을 미리 늘리지 않아요.')).toBeInTheDocument()
+    expect(screen.getByText(/다리가 많이 뻐근하거나 통증이 있으면 바로 쉬어요/)).toBeInTheDocument()
   })
 
   it('shows move collisions as alerts and restores focus after Escape', async () => {
