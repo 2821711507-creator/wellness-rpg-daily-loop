@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useId, type CSSProperties } from 'react'
 import { AVATAR_PARTS } from '../data/avatarManifest'
 import { AVATAR_PIXEL_LAYERS, type PixelFill, type PixelRect } from '../data/avatarPixelLayers'
 import { getAvatarLayerIds, type AvatarSelectionSlot, type AvatarState } from '../domain/avatar'
@@ -53,6 +53,7 @@ function Pixels({ pixels }: { pixels:PixelRect[] }) {
 }
 
 export function AvatarRenderer({ state, className = '' }: { state:AvatarState; className?:string }) {
+  const hairMaskId = `avatar-hair-mask-${useId()}`
   const [skinLight, skin, skinShade, skinDeep] = SKIN_PALETTES[state.skin]
   const style = {
     '--avatar-skin-light':skinLight,
@@ -92,18 +93,24 @@ export function AvatarRenderer({ state, className = '' }: { state:AvatarState; c
     : hasRunnerTop
       ? `/avatar/v2/${state.gender}-top-runner.png`
       : `/avatar/v2/base-${state.gender}.png`
+  const hasTiedHair = state.equipped.hair === 'hair-tied'
 
   return <svg className={`avatar-renderer ${className}`.trim()} viewBox="0 0 96 144" role="img" aria-label={name} shapeRendering="crispEdges" style={style}>
+    {hasTiedHair && <defs><mask id={hairMaskId} maskUnits="userSpaceOnUse" style={{ maskType:'alpha' }}>
+      <image href={`/avatar/v2/${state.gender}-hair-replacement-mask.png`} width="96" height="144"/>
+    </mask></defs>}
     {getAvatarLayerIds(state).map(id => {
       const isBase = id === 'base-male' || id === 'base-female'
       const isLegacyHair = id.startsWith('hair-')
       const isRasterBottom = id === 'bottom-pants'
       return <g key={id} data-layer-id={id} style={LAYER_PALETTES[id]}>
         {isBase
-          ? <image data-raster-base href={rasterBaseSrc} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
+          ? <image data-raster-base href={rasterBaseSrc} width="96" height="144" mask={hasTiedHair ? `url(#${hairMaskId})` : undefined} style={{ imageRendering:'pixelated' }}/>
           : isRasterBottom
             ? <image data-raster-bottom href={`/avatar/v2/${state.gender}-bottom-pants.png`} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
-            : !isLegacyHair && id !== 'top-runner' && id !== 'shoes-trainers' && id !== 'shoes-walk' && <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
+            : id === 'hair-tied-front'
+              ? <image data-raster-hair href={`/avatar/v2/${state.gender}-hair-tied.png`} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
+              : !isLegacyHair && id !== 'top-runner' && id !== 'shoes-trainers' && id !== 'shoes-walk' && <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
         }
       </g>
     })}

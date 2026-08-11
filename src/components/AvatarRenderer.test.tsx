@@ -97,6 +97,19 @@ describe('AvatarRenderer', () => {
     expect(screen.getByRole('img').querySelector('[data-layer-id="shoes-walk"] rect')).toBeNull()
   })
 
+  it('replaces baked hair with the independent tied-hair raster layer', () => {
+    const state:AvatarState = {
+      ...AVATAR_DEFAULTS,
+      gender:'female',
+      unlockedIds:[...AVATAR_DEFAULTS.unlockedIds, 'hair-tied'],
+      equipped:{ ...AVATAR_DEFAULTS.equipped, hair:'hair-tied' },
+    }
+    render(<AvatarRenderer state={state}/>)
+    expect(screen.getByRole('img').querySelector('[data-raster-base]')?.getAttribute('mask')).toMatch(/^url\(#avatar-hair-mask-/)
+    expect(screen.getByRole('img').querySelector('[data-raster-hair]')).toHaveAttribute('href', '/avatar/v2/female-hair-tied.png')
+    expect(screen.getByRole('img').querySelector('[data-layer-id="hair-tied-front"] rect')).toBeNull()
+  })
+
   it('uses only exact integer scales for the Today avatar card', () => {
     expect(appStyles).toContain('.avatar-renderer{display:block;width:96px;height:144px')
     expect(appStyles).toContain('.avatar-card .avatar-renderer{width:192px;height:288px}')
