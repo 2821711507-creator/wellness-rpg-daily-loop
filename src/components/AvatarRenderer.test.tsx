@@ -81,6 +81,22 @@ describe('AvatarRenderer', () => {
     expect(screen.getByRole('img').querySelector('[data-layer-id="bottom-pants"] rect')).toBeNull()
   })
 
+  it('uses polished walking-shoe raster states for base and runner combinations', () => {
+    const baseState:AvatarState = {
+      ...AVATAR_DEFAULTS, gender:'male', unlockedIds:[...AVATAR_DEFAULTS.unlockedIds, 'shoes-walk'],
+      equipped:{ ...AVATAR_DEFAULTS.equipped, shoes:'shoes-walk' },
+    }
+    const runnerState:AvatarState = {
+      ...AVATAR_DEFAULTS, gender:'female', unlockedIds:[...AVATAR_DEFAULTS.unlockedIds, 'top-runner', 'shoes-walk'],
+      equipped:{ ...AVATAR_DEFAULTS.equipped, top:'top-runner', shoes:'shoes-walk' },
+    }
+    const { rerender } = render(<AvatarRenderer state={baseState}/>)
+    expect(screen.getByRole('img').querySelector('[data-raster-base]')).toHaveAttribute('href', '/avatar/v2/male-shoes-walk.png')
+    rerender(<AvatarRenderer state={runnerState}/>)
+    expect(screen.getByRole('img').querySelector('[data-raster-base]')).toHaveAttribute('href', '/avatar/v2/female-top-runner-shoes-walk.png')
+    expect(screen.getByRole('img').querySelector('[data-layer-id="shoes-walk"] rect')).toBeNull()
+  })
+
   it('uses only exact integer scales for the Today avatar card', () => {
     expect(appStyles).toContain('.avatar-renderer{display:block;width:96px;height:144px')
     expect(appStyles).toContain('.avatar-card .avatar-renderer{width:192px;height:288px}')

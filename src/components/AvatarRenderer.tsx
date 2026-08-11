@@ -84,9 +84,11 @@ export function AvatarRenderer({ state, className = '' }: { state:AvatarState; c
     ...(['hair', 'top', 'bottom', 'shoes', 'hat', 'accessory'] as AvatarSelectionSlot[]).map(slot => partName(state, slot)),
   ].filter(Boolean).join(', ')
   const hasRunnerTop = state.equipped.top === 'top-runner'
-  const hasTrainers = state.equipped.shoes === 'shoes-trainers'
-  const rasterBaseSrc = hasTrainers
-    ? `/avatar/v2/${state.gender}${hasRunnerTop ? '-top-runner' : ''}-shoes-trainers.png`
+  const rasterShoes = state.equipped.shoes === 'shoes-trainers' || state.equipped.shoes === 'shoes-walk'
+    ? state.equipped.shoes
+    : undefined
+  const rasterBaseSrc = rasterShoes
+    ? `/avatar/v2/${state.gender}${hasRunnerTop ? '-top-runner' : ''}-${rasterShoes}.png`
     : hasRunnerTop
       ? `/avatar/v2/${state.gender}-top-runner.png`
       : `/avatar/v2/base-${state.gender}.png`
@@ -101,7 +103,7 @@ export function AvatarRenderer({ state, className = '' }: { state:AvatarState; c
           ? <image data-raster-base href={rasterBaseSrc} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
           : isRasterBottom
             ? <image data-raster-bottom href={`/avatar/v2/${state.gender}-bottom-pants.png`} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
-            : !isLegacyHair && id !== 'top-runner' && id !== 'shoes-trainers' && <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
+            : !isLegacyHair && id !== 'top-runner' && id !== 'shoes-trainers' && id !== 'shoes-walk' && <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
         }
       </g>
     })}
