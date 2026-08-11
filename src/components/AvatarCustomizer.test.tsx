@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { AVATAR_DEFAULTS, AVATAR_PARTS } from '../data/avatarManifest'
@@ -48,6 +48,14 @@ describe('layered avatar UI', () => {
     expect(screen.getByRole('button', { name:'상의 없음' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name:/러닝복.*레벨 3/ })).toBeDisabled()
     expect(screen.getByText('다음 보상')).toBeInTheDocument()
+  })
+
+  it('limits upcoming rewards to the next three items sorted by level then ID', () => {
+    const handlers = { onGenderChange:vi.fn(), onSkinChange:vi.fn(), onEquip:vi.fn(), onClose:vi.fn() }
+    render(<AvatarCustomizer state={AVATAR_DEFAULTS} gameLevel={1} onUnequip={vi.fn()} {...handlers}/>)
+    const rewards = within(screen.getByRole('complementary', { name:'다음 보상' })).getAllByRole('listitem')
+    expect(rewards).toHaveLength(3)
+    expect(rewards.map(reward => reward.textContent)).toEqual(['웨이브 머리레벨 2', '운동화레벨 2', '러닝복레벨 3'])
   })
 
   it('unequips optional slots and prevents locked items from equipping', async () => {
