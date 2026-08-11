@@ -78,7 +78,6 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     setSmoothie: (smoothie: SmoothieItem[]) => setState(current => ({ ...current, smoothie })),
     setActivity: (selectedActivityId: string) => setState(current => ({ ...current, selectedActivityId })),
     complete,
-    setBase: (gender: AvatarGender) => setState(current => ({ ...current, avatar: selectGender(current.avatar, gender) })),
     setAvatarGender: (gender: AvatarGender) => setState(current => ({ ...current, avatar:selectGender(current.avatar, gender) })),
     setAvatarSkin: (skin: AvatarSkin) => setState(current => ({ ...current, avatar:selectSkin(current.avatar, skin) })),
     equipAvatarItem: (itemId: string) => setState(current => ({ ...current, avatar:equipItem(current.avatar, itemId) })),
