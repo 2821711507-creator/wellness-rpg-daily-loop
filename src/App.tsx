@@ -25,7 +25,7 @@ export function App({ now = () => new Date() }: { now?: () => Date }) {
 
   if (!game.state.profile) return <Onboarding onComplete={game.onboard}/>
   if (view === 'today') return <><TodayScreen state={game.state} setSmoothie={game.setSmoothie} setActivity={game.setActivity} complete={game.complete} onOpenPlan={() => setView('plan')} onOpenRecords={() => setView('records')} onOpenAvatar={() => setView('avatar')} customizeButtonRef={customizeButtonRef} now={now}/>{game.warning && <p role="status">{game.warning}</p>}</>
-  if (view === 'avatar') return <div className="app-shell"><header className="topbar"><div className="brand-mark">W</div><div><p className="eyebrow">나만의 모험가</p><h1>캐릭터 꾸미기</h1></div></header><AvatarCustomizer state={game.state.avatar} onGenderChange={game.setAvatarGender} onSkinChange={game.setAvatarSkin} onEquip={game.equipAvatarItem} onClose={closeAvatar}/></div>
+  if (view === 'avatar') return <div className="app-shell"><header className="topbar"><div className="brand-mark">W</div><div><p className="eyebrow">나만의 모험가</p><h1>캐릭터 꾸미기</h1></div></header><AvatarCustomizer state={game.state.avatar} gameLevel={game.state.game.level} onGenderChange={game.setAvatarGender} onSkinChange={game.setAvatarSkin} onEquip={game.equipAvatarItem} onUnequip={game.unequipAvatarItem} onClose={closeAvatar}/></div>
 
   const records = view === 'records'
   return <div className="app-shell">

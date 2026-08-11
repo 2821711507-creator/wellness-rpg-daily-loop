@@ -8,7 +8,7 @@ describe('useWellnessGame weekly plans', () => {
 
   it('starts with the normalized layered avatar defaults', () => {
     const { result } = renderHook(() => useWellnessGame())
-    expect(result.current.state.avatar).toMatchObject({ gender:'male', skin:'medium', equipped:{ hair:'hair-short', top:'top-runner' } })
+    expect(result.current.state.avatar).toMatchObject({ gender:'male', skin:'medium', equipped:{ hair:'hair-short' } })
   })
 
   it('restores an existing version-one daily record without a weekly plan', () => {
@@ -116,17 +116,16 @@ describe('useWellnessGame weekly plans', () => {
     expect(result.current.state.completionEvents).toHaveLength(1)
   })
 
-  it('persists avatar gender, skin, and equipped parts', () => {
+  it('persists avatar gender, skin, and unlocked equipped parts', () => {
     const first = renderHook(() => useWellnessGame())
     act(() => first.result.current.setAvatarGender('female'))
     act(() => first.result.current.setAvatarSkin('deep'))
-    act(() => first.result.current.equipAvatarItem('hair-wave'))
-    act(() => first.result.current.equipAvatarItem('top-walk'))
-    expect(first.result.current.state.avatar).toMatchObject({ gender:'female', skin:'deep', equipped:{ hair:'hair-wave', top:'top-walk' } })
+    act(() => first.result.current.equipAvatarItem('hair-bob'))
+    expect(first.result.current.state.avatar).toMatchObject({ gender:'female', skin:'deep', equipped:{ hair:'hair-bob' } })
     first.unmount()
 
     const restored = renderHook(() => useWellnessGame())
-    expect(restored.result.current.state.avatar).toMatchObject({ gender:'female', skin:'deep', equipped:{ hair:'hair-wave', top:'top-walk' } })
+    expect(restored.result.current.state.avatar).toMatchObject({ gender:'female', skin:'deep', equipped:{ hair:'hair-bob' } })
   })
 
   it('recovers only invalid avatar selections', () => {
@@ -135,7 +134,7 @@ describe('useWellnessGame weekly plans', () => {
     first.unmount()
     localStorage.setItem('wellness-rpg:v1', JSON.stringify(saved))
     const restored = renderHook(() => useWellnessGame())
-    expect(restored.result.current.state.avatar).toMatchObject({ gender:'male', skin:'medium', equipped:{ top:'top-runner' } })
+    expect(restored.result.current.state.avatar).toMatchObject({ gender:'male', skin:'medium', equipped:{ hair:'hair-short' } })
     expect(restored.result.current.state.game.coins).toBe(555)
     expect(restored.result.current.state.smoothie).toEqual(saved.smoothie)
   })

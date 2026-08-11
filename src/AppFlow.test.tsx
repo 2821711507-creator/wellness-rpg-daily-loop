@@ -93,7 +93,7 @@ describe('daily loop', () => {
     expect(screen.getByText('40', { selector: 'strong' })).toBeInTheDocument()
   })
 
-  it('customizes the layered character and restores it after remounting', async () => {
+  it('customizes base appearance and restores it after remounting', async () => {
     const user = userEvent.setup()
     const first = render(<App />)
     await user.click(screen.getByRole('button', { name:'시작하기' }))
@@ -101,13 +101,11 @@ describe('daily loop', () => {
     await user.click(trigger)
     await user.click(screen.getByRole('button', { name:'여성 캐릭터' }))
     await user.click(screen.getByRole('button', { name:'짙은 피부' }))
-    await user.click(screen.getByRole('button', { name:'웨이브 머리' }))
-    await user.click(screen.getByRole('button', { name:'산보복' }))
     await user.click(screen.getByRole('button', { name:'오늘로 돌아가기' }))
-    expect(screen.getByRole('img', { name:/여성 캐릭터, 짙은 피부, 웨이브 머리, 산보복/ })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name:/여성 캐릭터, 짙은 피부, 짧은 머리/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name:'캐릭터 꾸미기' })).toHaveFocus()
     first.unmount()
     render(<App />)
-    expect(screen.getByRole('img', { name:/여성 캐릭터, 짙은 피부, 웨이브 머리, 산보복/ })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name:/여성 캐릭터, 짙은 피부, 짧은 머리/ })).toBeInTheDocument()
   })
 })
