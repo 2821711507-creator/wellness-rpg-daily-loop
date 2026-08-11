@@ -1,9 +1,13 @@
 import { render, screen } from '@testing-library/react'
+// @ts-expect-error Vitest runs in Node while the app-only TypeScript config intentionally omits Node globals.
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { AVATAR_DEFAULTS, AVATAR_PARTS } from '../data/avatarManifest'
 import { AVATAR_FACE_FEATURES, AVATAR_PIXEL_LAYERS } from '../data/avatarPixelLayers'
 import { getAvatarLayerIds, type AvatarState } from '../domain/avatar'
 import { AvatarRenderer } from './AvatarRenderer'
+
+const appStyles = readFileSync('src/styles.css', 'utf8')
 
 describe('AvatarRenderer', () => {
   it('renders the premium 96 by 144 grid and non-empty face groups for both genders', () => {
@@ -17,6 +21,18 @@ describe('AvatarRenderer', () => {
         expect(avatar.querySelector(`[data-face-feature="${feature}"]`)?.querySelectorAll('rect').length, `${gender} ${feature}`).toBeGreaterThan(0)
       }
     }
+  })
+
+  it('uses only exact integer scales for the Today avatar card', () => {
+    expect(appStyles).toContain('.avatar-renderer{display:block;width:96px;height:144px')
+    expect(appStyles).toContain('.avatar-card .avatar-renderer{width:192px;height:288px}')
+    expect(appStyles).toContain('@media(max-width:560px){.avatar-card .avatar-renderer{width:96px;height:144px}}')
+    expect(appStyles).not.toContain('width:128px;height:192px')
+  })
+
+  it('keeps the compact Today avatar and progress copy side by side', () => {
+    const compactStyles = appStyles.slice(appStyles.indexOf('@media(max-width:390px)'))
+    expect(compactStyles).not.toContain('.avatar-card{flex-direction:column}')
   })
 
   it('renders no optional clothing or shoes for defaults', () => {
