@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { AVATAR_DEFAULTS, AVATAR_PARTS } from '../data/avatarManifest'
-import { equipItem, getAvatarLayerIds, normalizeAvatarState, selectGender, selectSkin, type AvatarGender } from './avatar'
+import { equipItem, getAvatarLayerIds, normalizeAvatarState, selectGender, selectSkin, unequipItem, type AvatarGender } from './avatar'
 
 describe('layered avatar', () => {
   it.each([
@@ -31,6 +31,27 @@ describe('layered avatar', () => {
 
   it('rejects locked items', () => {
     expect(() => equipItem({ ...AVATAR_DEFAULTS, unlockedIds:[] }, 'top-walk')).toThrow('잠긴')
+  })
+
+  it('unequips optional clothing without changing the base or hair', () => {
+    const state = { ...AVATAR_DEFAULTS, equipped:{ hair:'hair-short', top:'top-runner', shoes:'shoes-trainers' } }
+    expect(unequipItem(state, 'top').equipped).toEqual({ hair:'hair-short', shoes:'shoes-trainers' })
+    expect(() => unequipItem(state, 'hair')).toThrow('머리는 해제할 수 없습니다.')
+  })
+
+  it.each([
+    ['bottom', 'bottom-pants'],
+    ['shoes', 'shoes-trainers'],
+    ['hat', 'hat-wellness-cap'],
+    ['accessory', 'accessory-bottle-pouch'],
+  ] as const)('unequips the optional %s slot', (slot, itemId) => {
+    const state = { ...AVATAR_DEFAULTS, equipped:{ hair:'hair-short', [slot]:itemId } }
+    expect(unequipItem(state, slot).equipped).toEqual({ hair:'hair-short' })
+  })
+
+  it('normalizes a new empty clothing state without adding defaults', () => {
+    const result = normalizeAvatarState({ gender:'female', skin:'medium', unlockedIds:['hair-short'], equipped:{ hair:'hair-short' } })
+    expect(result.equipped).toEqual({ hair:'hair-short' })
   })
 
   it('returns the fixed visual layer order', () => {
