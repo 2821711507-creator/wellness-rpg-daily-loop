@@ -76,6 +76,20 @@ describe('useWellnessGame weekly plans', () => {
     expect(restored.result.current.warning).toContain('체중 기록만 초기화')
   })
 
+  it('keeps weight and existing state when only completion events are corrupt', () => {
+    const first = renderHook(() => useWellnessGame())
+    const weight = { id:'weight-2026-08-10', date:'2026-08-10', weightKg:70.2, recordedAt:'2026-08-10T07:00:00+09:00' }
+    const saved = { ...first.result.current.state, game:{ ...first.result.current.state.game, coins:444 }, avatar:{ ...first.result.current.state.avatar, base:'feminine' as const }, weightEntries:[weight], completionEvents:[{ broken:true }] }
+    first.unmount()
+    localStorage.setItem('wellness-rpg:v1', JSON.stringify(saved))
+    const restored = renderHook(() => useWellnessGame({ now:() => new Date(2026, 7, 11) }))
+    expect(restored.result.current.state.weightEntries).toEqual([weight])
+    expect(restored.result.current.state.completionEvents).toEqual([])
+    expect(restored.result.current.state.game.coins).toBe(444)
+    expect(restored.result.current.state.avatar.base).toBe('feminine')
+    expect(restored.result.current.warning).toContain('완료 기록만 초기화')
+  })
+
   it('saves, replaces, and deletes today weight', () => {
     const { result } = renderHook(() => useWellnessGame({ now:() => new Date(2026, 7, 11, 7) }))
     act(() => result.current.saveWeight(72.46))
