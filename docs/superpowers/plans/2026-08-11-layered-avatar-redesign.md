@@ -15,7 +15,7 @@
 - Existing `masculine | feminine` values migrate without resetting unrelated state.
 - Hair and clothing have no gender restriction.
 - Body shape never changes from weight, calorie intake, or progress.
-- The logical canvas is 32×48 and layer order is `base,bottom,top,shoes,hairBack,hairFront,hat,accessory`.
+- The logical canvas is 64×96 and layer order is `hairBack,base,bottom,top,shoes,hairFront,hat,accessory`.
 - All shipped art is original, recorded as `project-owned`, and does not copy DiceBear artwork.
 - Initial assets are 2 bases, 3 skin tones, 4 hairstyles, 3 tops, 2 bottoms, and 2 shoes.
 - Unknown required selections fall back to catalog defaults; unknown optional selections render nothing.
@@ -72,7 +72,7 @@ export function getAvatarLayerIds(state:AvatarState):string[]
 - [ ] Define catalog IDs `hair-short`, `hair-bob`, `hair-wave`, `hair-tied`, `top-runner`, `top-gym`, `top-walk`, `bottom-pants`, `bottom-shorts`, `shoes-trainers`, and `shoes-walk` in `avatarManifest.ts`.
 - [ ] Put every first-release selectable part in `AVATAR_DEFAULTS.unlockedIds`; rewards and locked catalog entries are outside this plan.
 - [ ] Implement `normalizeAvatarState` as a pure function; never mutate its input and never read storage.
-- [ ] Update `public/avatar/manifest.json` so every asset has `author:"project"`, `license:"project-owned"`, a Korean display name, slot, and `grid:"32x48"`.
+- [ ] Update `public/avatar/manifest.json` so every asset has `author:"project"`, `license:"project-owned"`, a Korean display name, slot, and `grid:"64x96"`.
 - [ ] Run the focused test and `npm run build`; expect success.
 - [ ] Commit with `git commit -m "feat: add layered avatar catalog"`.
 
@@ -93,9 +93,9 @@ export const AVATAR_PIXEL_LAYERS:AvatarPixelLayer
 export function AvatarRenderer(props:{ state:AvatarState; className?:string }):JSX.Element
 ```
 
-- [ ] Write a failing renderer test expecting one `<svg viewBox="0 0 32 48">`, `role="img"`, and accessible name `남성 캐릭터, 짧은 머리, 러닝복, 트레이닝 바지, 운동화` for defaults.
+- [ ] Write a failing renderer test expecting one `<svg viewBox="0 0 64 96">`, `role="img"`, and accessible name `남성 캐릭터, 짧은 머리, 러닝복, 트레이닝 바지, 운동화` for defaults.
 - [ ] Write a failing test that changes gender, skin, hair, top, bottom, and shoes and observes the corresponding `data-layer-id` groups in catalog order.
-- [ ] Write a failing test that every resolved layer ID has at least one rectangle and all rectangles remain inside `0≤x<32`, `0≤y<48`, with positive width and height.
+- [ ] Write a failing test that every resolved layer ID has at least one rectangle and all rectangles remain inside `0≤x<64`, `0≤y<96`, with positive width and height.
 - [ ] Run `npm test -- --run src/components/AvatarRenderer.test.tsx`; expect a missing-module failure.
 - [ ] Draw original base faces and bodies using integer-coordinate rectangles; give male and female bases visibly distinct silhouettes without changing height or implying weight.
 - [ ] Draw three skin palettes, four two-part hairstyles, three tops, two bottoms, and two shoes; reuse palette tokens rather than duplicating color literals across rectangles.

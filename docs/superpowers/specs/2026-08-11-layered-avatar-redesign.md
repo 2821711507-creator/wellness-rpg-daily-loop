@@ -16,7 +16,7 @@ The implementation will borrow the architecture—not artwork—from [DiceBear](
 
 ## Visual Direction
 
-- Front-facing, full-body character drawn on a consistent 32×48 logical pixel grid.
+- Front-facing, full-body character drawn on a consistent 64×96 logical pixel grid, matching the approved refined modern pixel-art direction A.
 - Rendered at an integer multiple whenever practical to preserve crisp pixel edges.
 - Light lifestyle-adventure tone rather than combat RPG styling.
 - The app's pale blue and ivory remain dominant; clothing may use a restrained secondary color.
@@ -57,11 +57,11 @@ This scope supplies enough combinations to judge the system without prematurely 
 
 The renderer uses one fixed ordering:
 
-1. body base;
-2. bottom;
-3. top;
-4. shoes;
-5. back hair;
+1. back hair;
+2. body base;
+3. bottom;
+4. top;
+5. shoes;
 6. front hair;
 7. hat;
 8. accessory.

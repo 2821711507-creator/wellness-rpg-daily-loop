@@ -36,8 +36,8 @@ describe('layered avatar', () => {
   it('returns the fixed visual layer order', () => {
     const state = { ...AVATAR_DEFAULTS, gender:'female' as const, equipped:{ ...AVATAR_DEFAULTS.equipped, hair:'hair-wave' } }
     expect(getAvatarLayerIds(state)).toEqual([
-      'base-female', 'bottom-pants', 'top-runner', 'shoes-trainers',
-      'hair-wave-back', 'hair-wave-front',
+      'hair-wave-back', 'base-female', 'bottom-pants', 'top-runner',
+      'shoes-trainers', 'hair-wave-front',
     ])
   })
 })

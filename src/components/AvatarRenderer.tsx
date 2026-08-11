@@ -24,7 +24,7 @@ export function AvatarRenderer({ state, className = '' }: { state:AvatarState; c
   const style = { '--avatar-skin':skin, '--avatar-skin-shade':skinShade, '--avatar-hair':'#33405a', '--avatar-hair-shade':'#202a3c', '--avatar-fabric':fabric, '--avatar-fabric-shade':fabricShade, '--avatar-shoe':'#475a76' } as CSSProperties
   const genderName = state.gender === 'male' ? '남성 캐릭터' : '여성 캐릭터'
   const name = [genderName, SKIN_NAMES[state.skin], partName(state, 'hair'), partName(state, 'top'), partName(state, 'bottom'), partName(state, 'shoes')].filter(Boolean).join(', ')
-  return <svg className={`avatar-renderer ${className}`.trim()} viewBox="0 0 32 48" role="img" aria-label={name} shapeRendering="crispEdges" style={style}>
+  return <svg className={`avatar-renderer ${className}`.trim()} viewBox="0 0 64 96" role="img" aria-label={name} shapeRendering="crispEdges" style={style}>
     {getAvatarLayerIds(state).map(id => <g key={id} data-layer-id={id}>{AVATAR_PIXEL_LAYERS[id]?.map((pixel, index) => <rect key={index} x={pixel.x} y={pixel.y} width={pixel.width} height={pixel.height} fill={FILL[pixel.fill]}/>)}</g>)}
   </svg>
 }

@@ -9,7 +9,7 @@ describe('AvatarRenderer', () => {
   it('renders the default combination as an accessible crisp SVG', () => {
     render(<AvatarRenderer state={AVATAR_DEFAULTS}/>)
     const avatar = screen.getByRole('img', { name:'남성 캐릭터, 중간 피부, 짧은 머리, 러닝복, 트레이닝 바지, 운동화' })
-    expect(avatar).toHaveAttribute('viewBox', '0 0 32 48')
+    expect(avatar).toHaveAttribute('viewBox', '0 0 64 96')
     expect(avatar).toHaveAttribute('shape-rendering', 'crispEdges')
   })
 
@@ -31,8 +31,8 @@ describe('AvatarRenderer', () => {
         expect(rect.y, id).toBeGreaterThanOrEqual(0)
         expect(rect.width, id).toBeGreaterThan(0)
         expect(rect.height, id).toBeGreaterThan(0)
-        expect(rect.x + rect.width, id).toBeLessThanOrEqual(32)
-        expect(rect.y + rect.height, id).toBeLessThanOrEqual(48)
+        expect(rect.x + rect.width, id).toBeLessThanOrEqual(64)
+        expect(rect.y + rect.height, id).toBeLessThanOrEqual(96)
       }
     }
   })

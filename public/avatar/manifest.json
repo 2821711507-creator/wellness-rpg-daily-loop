@@ -1,5 +1,5 @@
 {
-  "grid":"32x48",
+  "grid":"64x96",
   "assets":[
     {"id":"base-male","name":"남성 캐릭터","slot":"base","author":"project","license":"project-owned"},
     {"id":"base-female","name":"여성 캐릭터","slot":"base","author":"project","license":"project-owned"},

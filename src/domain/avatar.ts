@@ -40,11 +40,13 @@ export function equipItem(state:AvatarState, itemId:string):AvatarState {
 }
 
 export function getAvatarLayerIds(state:AvatarState):string[] {
-  const layers: string[] = [`base-${state.gender}`]
-  for (const slot of ['bottom', 'top', 'shoes', 'hair'] as AvatarSelectionSlot[]) {
+  const hair = partFor(state.equipped.hair)
+  const layers: string[] = [...(hair?.layerIds?.slice(0, 1) ?? []), `base-${state.gender}`]
+  for (const slot of ['bottom', 'top', 'shoes'] as AvatarSelectionSlot[]) {
     const part = partFor(state.equipped[slot])
     if (part) layers.push(...(part.layerIds ?? [part.id]))
   }
+  if (hair) layers.push(...(hair.layerIds?.slice(1) ?? [hair.id]))
   for (const slot of ['hat', 'accessory'] as AvatarSelectionSlot[]) {
     const part = partFor(state.equipped[slot])
     if (part) layers.push(...(part.layerIds ?? [part.id]))
