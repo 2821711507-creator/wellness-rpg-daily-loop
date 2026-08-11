@@ -66,6 +66,21 @@ describe('AvatarRenderer', () => {
     expect(screen.getByRole('img').querySelector('[data-layer-id="shoes-trainers"] rect')).toBeNull()
   })
 
+  it('renders training pants as an independent gender-matched raster layer', () => {
+    const state:AvatarState = {
+      ...AVATAR_DEFAULTS,
+      gender:'female',
+      unlockedIds:[...AVATAR_DEFAULTS.unlockedIds, 'top-runner', 'bottom-pants', 'shoes-trainers'],
+      equipped:{ ...AVATAR_DEFAULTS.equipped, top:'top-runner', bottom:'bottom-pants', shoes:'shoes-trainers' },
+    }
+    render(<AvatarRenderer state={state}/>)
+    const bottom = screen.getByRole('img').querySelector('[data-raster-bottom]')
+    expect(bottom).toHaveAttribute('href', '/avatar/v2/female-bottom-pants.png')
+    expect(bottom).toHaveAttribute('width', '96')
+    expect(bottom).toHaveAttribute('height', '144')
+    expect(screen.getByRole('img').querySelector('[data-layer-id="bottom-pants"] rect')).toBeNull()
+  })
+
   it('uses only exact integer scales for the Today avatar card', () => {
     expect(appStyles).toContain('.avatar-renderer{display:block;width:96px;height:144px')
     expect(appStyles).toContain('.avatar-card .avatar-renderer{width:192px;height:288px}')

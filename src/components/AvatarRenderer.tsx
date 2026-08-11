@@ -95,10 +95,13 @@ export function AvatarRenderer({ state, className = '' }: { state:AvatarState; c
     {getAvatarLayerIds(state).map(id => {
       const isBase = id === 'base-male' || id === 'base-female'
       const isLegacyHair = id.startsWith('hair-')
+      const isRasterBottom = id === 'bottom-pants'
       return <g key={id} data-layer-id={id} style={LAYER_PALETTES[id]}>
         {isBase
           ? <image data-raster-base href={rasterBaseSrc} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
-          : !isLegacyHair && id !== 'top-runner' && id !== 'shoes-trainers' && <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
+          : isRasterBottom
+            ? <image data-raster-bottom href={`/avatar/v2/${state.gender}-bottom-pants.png`} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
+            : !isLegacyHair && id !== 'top-runner' && id !== 'shoes-trainers' && <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
         }
       </g>
     })}
