@@ -1,0 +1,6 @@
+import { INSIGHT_EVIDENCE, type WeeklyInsight } from '../domain/insight'
+
+export function WeeklyInsightCard({ insight }: { insight:WeeklyInsight }) {
+  const evidence = INSIGHT_EVIDENCE.filter(item => insight.evidenceIds.includes(item.id))
+  return <section className="record-card insight-card" aria-labelledby="insight-title"><div className="record-section-head"><div><p className="record-kicker">기록 해석</p><h2 id="insight-title">이번 주 분석</h2></div><span className="method-badge">규칙 기반 분석</span></div><div className="insight-body">{insight.observations.map(item => <p key={item}>{item}</p>)}{insight.interpretation && <p className="insight-highlight">{insight.interpretation}</p>}<ul>{insight.suggestions.map(item => <li key={item}>{item}</li>)}</ul></div><details className="method-details"><summary>분석 방법과 근거</summary><p className="equation">7일 평균 = 최근 7일 유효 체중 합 ÷ 기록 수</p><p>최근 7일 중 4일 이상 기록됐을 때 평균 추세를 표시합니다. 생성형 AI의 진단이 아니라, 공개된 기준을 적용한 설명형 규칙입니다.</p><p>체중 기록이 불안하거나 부담스럽다면 측정 빈도를 낮추거나 기록 화면을 사용하지 않아도 괜찮아요.</p><div className="evidence-links">{evidence.map(item => <a key={item.id} href={item.url} target="_blank" rel="noreferrer">{item.publisher}: {item.title}</a>)}</div></details></section>
+}
