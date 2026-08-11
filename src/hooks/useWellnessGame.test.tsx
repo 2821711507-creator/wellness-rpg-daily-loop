@@ -51,4 +51,49 @@ describe('useWellnessGame weekly plans', () => {
     act(() => result.current.setSmoothie([{ ingredientId: 'banana', grams: 88 }]))
     expect(result.current.state.smoothie).toEqual([{ ingredientId: 'banana', grams: 88 }])
   })
+
+  it('defaults missing record arrays without changing existing state', () => {
+    const first = renderHook(() => useWellnessGame())
+    const saved = { ...first.result.current.state, game:{ ...first.result.current.state.game, coins:222 } }
+    first.unmount()
+    localStorage.setItem('wellness-rpg:v1', JSON.stringify(saved))
+    const restored = renderHook(() => useWellnessGame({ now:() => new Date(2026, 7, 11) }))
+    expect(restored.result.current.state.game.coins).toBe(222)
+    expect(restored.result.current.state.weightEntries).toEqual([])
+    expect(restored.result.current.state.completionEvents).toEqual([])
+  })
+
+  it('recovers corrupt record arrays independently', () => {
+    const first = renderHook(() => useWellnessGame())
+    const event = { id:'record-recovery-2026-08-10', date:'2026-08-10', kind:'recovery', xpEarned:15 }
+    const saved = { ...first.result.current.state, game:{ ...first.result.current.state.game, coins:333 }, weightEntries:[{ bad:true }], completionEvents:[event] }
+    first.unmount()
+    localStorage.setItem('wellness-rpg:v1', JSON.stringify(saved))
+    const restored = renderHook(() => useWellnessGame({ now:() => new Date(2026, 7, 11) }))
+    expect(restored.result.current.state.weightEntries).toEqual([])
+    expect(restored.result.current.state.completionEvents).toEqual([event])
+    expect(restored.result.current.state.game.coins).toBe(333)
+    expect(restored.result.current.warning).toContain('체중 기록만 초기화')
+  })
+
+  it('saves, replaces, and deletes today weight', () => {
+    const { result } = renderHook(() => useWellnessGame({ now:() => new Date(2026, 7, 11, 7) }))
+    act(() => result.current.saveWeight(72.46))
+    expect(result.current.state.weightEntries?.[0]).toMatchObject({ date:'2026-08-11', weightKg:72.5 })
+    expect(result.current.mutationMessage).toBe('오늘 기록을 저장했어요.')
+    act(() => result.current.saveWeight(72.1))
+    expect(result.current.state.weightEntries).toHaveLength(1)
+    expect(result.current.state.weightEntries?.[0].weightKg).toBe(72.1)
+    act(() => result.current.deleteWeight('2026-08-11'))
+    expect(result.current.state.weightEntries).toEqual([])
+  })
+
+  it('records a planned completion event and xp exactly once', () => {
+    const { result } = renderHook(() => useWellnessGame({ now:() => new Date(2026, 7, 10, 12) }))
+    act(() => result.current.generatePlan({ mealsPerDay:2, smoothieSlots:['breakfast'], activitiesPerWeek:2, activityMix:{ gym:1, home:1, walk:0 } }))
+    act(() => result.current.complete('activity'))
+    expect(result.current.state.completionEvents).toEqual([expect.objectContaining({ date:'2026-08-10', kind:'planned-activity', xpEarned:40 })])
+    act(() => result.current.complete('activity'))
+    expect(result.current.state.completionEvents).toHaveLength(1)
+  })
 })
