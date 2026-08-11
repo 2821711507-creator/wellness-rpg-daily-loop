@@ -1,1 +1,18 @@
-{"assets":[{"id":"base-masculine","slot":"base","author":"project","license":"project-owned"},{"id":"base-feminine","slot":"base","author":"project","license":"project-owned"},{"id":"runner-top","slot":"top","author":"project","license":"project-owned"}]}
+{
+  "grid":"32x48",
+  "assets":[
+    {"id":"base-male","name":"남성 캐릭터","slot":"base","author":"project","license":"project-owned"},
+    {"id":"base-female","name":"여성 캐릭터","slot":"base","author":"project","license":"project-owned"},
+    {"id":"hair-short","name":"짧은 머리","slot":"hair","author":"project","license":"project-owned"},
+    {"id":"hair-bob","name":"단발 머리","slot":"hair","author":"project","license":"project-owned"},
+    {"id":"hair-wave","name":"웨이브 머리","slot":"hair","author":"project","license":"project-owned"},
+    {"id":"hair-tied","name":"묶은 머리","slot":"hair","author":"project","license":"project-owned"},
+    {"id":"top-runner","name":"러닝복","slot":"top","author":"project","license":"project-owned"},
+    {"id":"top-gym","name":"헬스장복","slot":"top","author":"project","license":"project-owned"},
+    {"id":"top-walk","name":"산보복","slot":"top","author":"project","license":"project-owned"},
+    {"id":"bottom-pants","name":"트레이닝 바지","slot":"bottom","author":"project","license":"project-owned"},
+    {"id":"bottom-shorts","name":"반바지","slot":"bottom","author":"project","license":"project-owned"},
+    {"id":"shoes-trainers","name":"운동화","slot":"shoes","author":"project","license":"project-owned"},
+    {"id":"shoes-walk","name":"워킹화","slot":"shoes","author":"project","license":"project-owned"}
+  ]
+}

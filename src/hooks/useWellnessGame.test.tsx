@@ -6,6 +6,11 @@ import { useWellnessGame, type WellnessState } from './useWellnessGame'
 describe('useWellnessGame weekly plans', () => {
   beforeEach(() => localStorage.clear())
 
+  it('starts with the normalized layered avatar defaults', () => {
+    const { result } = renderHook(() => useWellnessGame())
+    expect(result.current.state.avatar).toMatchObject({ gender:'male', skin:'medium', equipped:{ hair:'hair-short', top:'top-runner' } })
+  })
+
   it('restores an existing version-one daily record without a weekly plan', () => {
     const first = renderHook(() => useWellnessGame())
     const saved = { ...first.result.current.state, game: { ...first.result.current.state.game, coins: 123 } }
@@ -79,14 +84,14 @@ describe('useWellnessGame weekly plans', () => {
   it('keeps weight and existing state when only completion events are corrupt', () => {
     const first = renderHook(() => useWellnessGame())
     const weight = { id:'weight-2026-08-10', date:'2026-08-10', weightKg:70.2, recordedAt:'2026-08-10T07:00:00+09:00' }
-    const saved = { ...first.result.current.state, game:{ ...first.result.current.state.game, coins:444 }, avatar:{ ...first.result.current.state.avatar, base:'feminine' as const }, weightEntries:[weight], completionEvents:[{ broken:true }] }
+    const saved = { ...first.result.current.state, game:{ ...first.result.current.state.game, coins:444 }, avatar:{ base:'feminine' as const, unlockedIds:['runner-top'], equipped:{ top:'runner-top' } }, weightEntries:[weight], completionEvents:[{ broken:true }] }
     first.unmount()
     localStorage.setItem('wellness-rpg:v1', JSON.stringify(saved))
     const restored = renderHook(() => useWellnessGame({ now:() => new Date(2026, 7, 11) }))
     expect(restored.result.current.state.weightEntries).toEqual([weight])
     expect(restored.result.current.state.completionEvents).toEqual([])
     expect(restored.result.current.state.game.coins).toBe(444)
-    expect(restored.result.current.state.avatar.base).toBe('feminine')
+    expect(restored.result.current.state.avatar.gender).toBe('female')
     expect(restored.result.current.warning).toContain('완료 기록만 초기화')
   })
 

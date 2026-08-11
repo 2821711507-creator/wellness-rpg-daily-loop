@@ -3,7 +3,8 @@ import { calculateNutritionTarget, type NutritionTarget } from '../domain/nutrit
 import type { UserProfile } from '../domain/profile'
 import type { SmoothieItem } from '../domain/smoothie'
 import { completeQuest, type GameState } from '../domain/game'
-import { selectBase, type AvatarState, type AvatarBase } from '../domain/avatar'
+import { normalizeAvatarState, selectGender, type AvatarState, type AvatarGender } from '../domain/avatar'
+import { AVATAR_DEFAULTS } from '../data/avatarManifest'
 import { LocalStorageWellnessRepository } from '../repositories/localStorageWellnessRepository'
 import type { WellnessRepository } from '../repositories/wellnessRepository'
 import { activityTemplates } from '../data/activityTemplates'
@@ -14,7 +15,7 @@ import { parseCompletionEvents, parseWeightEntries } from '../domain/recordsVali
 import { deleteWeightEntry, upsertWeightEntry, type WeightEntry } from '../domain/weight'
 
 export interface WellnessState { version: 1; profile: UserProfile | null; nutritionTarget: NutritionTarget | null; smoothie: SmoothieItem[]; selectedActivityId: string; game: GameState; avatar: AvatarState; weeklyPlan?: WeeklyPlan; weightEntries?: WeightEntry[]; completionEvents?: CompletionEvent[] }
-const initial: WellnessState = { version: 1, profile: null, nutritionTarget: null, smoothie: [{ ingredientId: 'oats', grams: 40 }, { ingredientId: 'yogurt', grams: 150 }, { ingredientId: 'soy', grams: 200 }, { ingredientId: 'banana', grams: 100 }, { ingredientId: 'spinach', grams: 60 }], selectedActivityId: 'walk-basic', game: { level: 1, xp: 32, coins: 80, quests: [{ id: 'meal', title: '스무디 기록하기', kind: 'meal-log', xp: 20, coins: 10, completed: false }, { id: 'activity', title: '오늘의 운동 완료', kind: 'activity', xp: 40, coins: 20, completed: false }, { id: 'recovery', title: '5분 스트레칭', kind: 'recovery', xp: 15, coins: 5, completed: false }], processedEventIds: [] }, avatar: { base: 'masculine', unlockedIds: ['runner-top'], equipped: { top: 'runner-top' } }, weightEntries:[], completionEvents:[] }
+const initial: WellnessState = { version: 1, profile: null, nutritionTarget: null, smoothie: [{ ingredientId: 'oats', grams: 40 }, { ingredientId: 'yogurt', grams: 150 }, { ingredientId: 'soy', grams: 200 }, { ingredientId: 'banana', grams: 100 }, { ingredientId: 'spinach', grams: 60 }], selectedActivityId: 'walk-basic', game: { level: 1, xp: 32, coins: 80, quests: [{ id: 'meal', title: '스무디 기록하기', kind: 'meal-log', xp: 20, coins: 10, completed: false }, { id: 'activity', title: '오늘의 운동 완료', kind: 'activity', xp: 40, coins: 20, completed: false }, { id: 'recovery', title: '5분 스트레칭', kind: 'recovery', xp: 15, coins: 5, completed: false }], processedEventIds: [] }, avatar: { ...AVATAR_DEFAULTS, unlockedIds:[...AVATAR_DEFAULTS.unlockedIds], equipped:{ ...AVATAR_DEFAULTS.equipped } }, weightEntries:[], completionEvents:[] }
 const repository = new LocalStorageWellnessRepository<WellnessState>()
 export function useWellnessGame(options: { repository?: WellnessRepository<WellnessState>; now?: () => Date } = {}) {
   const activeRepository = options.repository ?? repository
@@ -27,7 +28,7 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     const events = result.state.completionEvents === undefined ? { events:[] } : parseCompletionEvents(result.state.completionEvents, today)
     const parsedPlan: { plan:WeeklyPlan|null|undefined; warning?:string } = result.state.weeklyPlan === undefined ? { plan:undefined } : parseWeeklyPlan(result.state.weeklyPlan, activityTemplates)
     const warnings = [result.warning, weights.warning, events.warning, parsedPlan.warning].filter(Boolean)
-    return { state:{ ...result.state, weeklyPlan:parsedPlan.plan ?? undefined, weightEntries:weights.entries, completionEvents:events.events }, warning:warnings.join(' ') || undefined }
+    return { state:{ ...result.state, avatar:normalizeAvatarState(result.state.avatar), weeklyPlan:parsedPlan.plan ?? undefined, weightEntries:weights.entries, completionEvents:events.events }, warning:warnings.join(' ') || undefined }
   })
   const [state, setState] = useState<WellnessState>(loaded.state)
   const [mutationMessage, setMutationMessage] = useState('')
@@ -77,7 +78,7 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     setSmoothie: (smoothie: SmoothieItem[]) => setState(current => ({ ...current, smoothie })),
     setActivity: (selectedActivityId: string) => setState(current => ({ ...current, selectedActivityId })),
     complete,
-    setBase: (base: AvatarBase) => setState(current => ({ ...current, avatar: selectBase(current.avatar, base) })),
+    setBase: (gender: AvatarGender) => setState(current => ({ ...current, avatar: selectGender(current.avatar, gender) })),
     generatePlan,
     clearPlan: () => setState(current => ({ ...current, weeklyPlan: undefined })),
     moveMeal: (id: string, date: string) => state.weeklyPlan ? applyMutation(movePlannedMeal(state.weeklyPlan, id, date)) : ({ ok: false, message: '주간 계획이 없어요.' } as PlanMutationResult),
