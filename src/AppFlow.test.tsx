@@ -108,4 +108,28 @@ describe('daily loop', () => {
     render(<App />)
     expect(screen.getByRole('img', { name:/여성 캐릭터, 짙은 피부, 짧은 머리/ })).toBeInTheDocument()
   })
+
+  it('unlocks, equips, and restores a level reward without auto-equipping it', async () => {
+    const user = userEvent.setup()
+    const now = () => new Date(2026, 7, 11, 7)
+    const first = render(<App now={now} />)
+    await user.click(screen.getByRole('button', { name:'시작하기' }))
+    await user.click(screen.getByRole('button', { name:/스무디 기록하기/ }))
+    await user.click(screen.getByRole('button', { name:/오늘의 운동 완료/ }))
+    await user.click(screen.getByRole('button', { name:/5분 스트레칭/ }))
+    await user.click(screen.getByRole('button', { name:'캐릭터 꾸미기' }))
+
+    const trainers = screen.getByRole('button', { name:'운동화' })
+    expect(trainers).toBeEnabled()
+    expect(trainers).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('img', { name:/짧은 머리$/ })).toBeInTheDocument()
+
+    await user.click(trainers)
+    expect(trainers).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('img', { name:/짧은 머리, 운동화/ })).toBeInTheDocument()
+    first.unmount()
+
+    render(<App now={now} />)
+    expect(screen.getByRole('img', { name:/짧은 머리, 운동화/ })).toBeInTheDocument()
+  })
 })

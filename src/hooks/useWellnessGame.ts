@@ -4,7 +4,8 @@ import type { UserProfile } from '../domain/profile'
 import type { SmoothieItem } from '../domain/smoothie'
 import { completeQuest, type GameState } from '../domain/game'
 import { equipItem, normalizeAvatarState, selectGender, selectSkin, unequipItem, type AvatarState, type AvatarGender, type AvatarSelectionSlot, type AvatarSkin } from '../domain/avatar'
-import { AVATAR_DEFAULTS } from '../data/avatarManifest'
+import { grantAvatarUnlocks } from '../domain/avatarProgression'
+import { AVATAR_DEFAULTS, AVATAR_PARTS } from '../data/avatarManifest'
 import { LocalStorageWellnessRepository } from '../repositories/localStorageWellnessRepository'
 import type { WellnessRepository } from '../repositories/wellnessRepository'
 import { activityTemplates } from '../data/activityTemplates'
@@ -56,12 +57,13 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
       if (plannedId) weeklyPlan = setPlannedItemCompleted(weeklyPlan, plannedId, true)
     }
     const game = completeQuest(current.game, id, `${id}-${date}`)
+    const avatar = grantAvatarUnlocks(current.avatar, current.game.level, game.level).state
     let completionEvents = current.completionEvents ?? []
     const quest = current.game.quests.find(item => item.id === id)
     const rewarded = game !== current.game
     const kind = id === 'activity' && plannedId ? 'planned-activity' : id === 'meal' && plannedId ? 'planned-meal' : id === 'recovery' ? 'recovery' : null
     if (rewarded && quest && kind) completionEvents = appendCompletionEvent(completionEvents, { id:`record-${kind}-${plannedId ?? date}`, date, kind, ...(plannedId ? { plannedItemId:plannedId } : {}), xpEarned:quest.xp })
-    return { ...current, weeklyPlan, game, completionEvents }
+    return { ...current, weeklyPlan, game, avatar, completionEvents }
   })
   const saveWeight = (weightKg: number) => {
     const date = toLocalDateKey(now())
@@ -70,10 +72,15 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     else setMutationMessage(result.message)
     return result
   }
+  const unlockedNames = state.avatar.unlockedIds
+    .filter(id => !loaded.state.avatar.unlockedIds.includes(id))
+    .flatMap(id => AVATAR_PARTS.find(part => part.id === id)?.name ?? [])
+  const avatarUnlockMessage = unlockedNames.length > 0 ? `${unlockedNames.join(', ')} 아이템을 해금했어요.` : ''
   return {
     state,
     warning: loaded.warning,
     mutationMessage,
+    avatarUnlockMessage,
     onboard: (profile: UserProfile) => setState(current => ({ ...current, profile, nutritionTarget: calculateNutritionTarget(profile) })),
     setSmoothie: (smoothie: SmoothieItem[]) => setState(current => ({ ...current, smoothie })),
     setActivity: (selectedActivityId: string) => setState(current => ({ ...current, selectedActivityId })),

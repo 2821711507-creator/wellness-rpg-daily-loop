@@ -3,12 +3,65 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { WellnessRepository } from '../repositories/wellnessRepository'
 import { useWellnessGame, type WellnessState } from './useWellnessGame'
 
+function memoryRepository(initialState: WellnessState): WellnessRepository<WellnessState> {
+  let state = structuredClone(initialState)
+  return {
+    load: () => ({ state:structuredClone(state) }),
+    save: next => { state = structuredClone(next) },
+  }
+}
+
 describe('useWellnessGame weekly plans', () => {
   beforeEach(() => localStorage.clear())
 
   it('starts with the normalized layered avatar defaults', () => {
     const { result } = renderHook(() => useWellnessGame())
     expect(result.current.state.avatar).toMatchObject({ gender:'male', skin:'medium', equipped:{ hair:'hair-short' } })
+  })
+
+  it('grants crossed-level cosmetics once and never auto-equips them', () => {
+    const seed = renderHook(() => useWellnessGame())
+    const repository = memoryRepository({ ...seed.result.current.state, game:{ ...seed.result.current.state.game, xp:90 } })
+    seed.unmount()
+    localStorage.clear()
+
+    const { result } = renderHook(() => useWellnessGame({ repository, now:() => new Date(2026, 7, 11, 7) }))
+    act(() => result.current.complete('recovery'))
+
+    expect(result.current.state.game.level).toBe(2)
+    expect(result.current.state.avatar.unlockedIds).toEqual(expect.arrayContaining(['hair-wave', 'shoes-trainers']))
+    expect(result.current.state.avatar.equipped).toEqual({ hair:'hair-short' })
+    expect(result.current.avatarUnlockMessage).toContain('운동화')
+
+    act(() => result.current.complete('recovery'))
+    expect(result.current.state.avatar.unlockedIds.filter(id => id === 'shoes-trainers')).toHaveLength(1)
+  })
+
+  it('preserves legacy rewards below their level and does not repeat unlock announcements on remount', () => {
+    const seed = renderHook(() => useWellnessGame())
+    const repository = memoryRepository({
+      ...seed.result.current.state,
+      game:{ ...seed.result.current.state.game, xp:90 },
+      avatar:{
+        ...seed.result.current.state.avatar,
+        unlockedIds:[...seed.result.current.state.avatar.unlockedIds, 'top-runner'],
+        equipped:{ hair:'hair-short', top:'top-runner' },
+      },
+    })
+    seed.unmount()
+    localStorage.clear()
+
+    const first = renderHook(() => useWellnessGame({ repository, now:() => new Date(2026, 7, 11, 7) }))
+    expect(first.result.current.state.avatar.equipped.top).toBe('top-runner')
+    act(() => first.result.current.complete('recovery'))
+    expect(first.result.current.state.avatar.equipped.top).toBe('top-runner')
+    expect(first.result.current.avatarUnlockMessage).toContain('웨이브 머리')
+    first.unmount()
+
+    const restored = renderHook(() => useWellnessGame({ repository, now:() => new Date(2026, 7, 11, 7) }))
+    expect(restored.result.current.state.avatar.unlockedIds).toEqual(expect.arrayContaining(['top-runner', 'hair-wave', 'shoes-trainers']))
+    expect(restored.result.current.state.avatar.equipped).toEqual({ hair:'hair-short', top:'top-runner' })
+    expect(restored.result.current.avatarUnlockMessage).toBe('')
   })
 
   it('restores an existing version-one daily record without a weekly plan', () => {
