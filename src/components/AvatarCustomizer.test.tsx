@@ -71,6 +71,26 @@ describe('layered avatar UI', () => {
     expect(rewards.map(reward => reward.textContent)).toEqual(['웨이브 머리레벨 2', '운동화레벨 2', '러닝복레벨 3'])
   })
 
+  it('keeps a low-level owned item enabled and out of future rewards', () => {
+    const handlers = { onGenderChange:vi.fn(), onSkinChange:vi.fn(), onEquip:vi.fn(), onUnequip:vi.fn(), onClose:vi.fn() }
+    const state = { ...AVATAR_DEFAULTS, unlockedIds:[...AVATAR_DEFAULTS.unlockedIds, 'top-runner'] }
+    render(<AvatarCustomizer state={state} gameLevel={1} {...handlers}/>)
+
+    expect(screen.getByRole('button', { name:'러닝복' })).toBeEnabled()
+    expect(within(screen.getByRole('complementary', { name:'다음 보상' })).queryByText('러닝복')).not.toBeInTheDocument()
+  })
+
+  it('keeps a high-level missing item disabled without calling an unsafe equip handler', async () => {
+    const user = userEvent.setup()
+    const onEquip = vi.fn(() => { throw new Error('잠긴 아이템을 장착하면 안 됩니다.') })
+    render(<AvatarCustomizer state={AVATAR_DEFAULTS} gameLevel={9} onGenderChange={vi.fn()} onSkinChange={vi.fn()} onEquip={onEquip} onUnequip={vi.fn()} onClose={vi.fn()}/>)
+
+    const trainers = screen.getByRole('button', { name:/운동화.*레벨 2/ })
+    expect(trainers).toBeDisabled()
+    await user.click(trainers)
+    expect(onEquip).not.toHaveBeenCalled()
+  })
+
   it('unequips optional slots and prevents locked items from equipping', async () => {
     const user = userEvent.setup()
     const onUnequip = vi.fn()

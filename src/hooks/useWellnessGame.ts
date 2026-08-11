@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { calculateNutritionTarget, type NutritionTarget } from '../domain/nutrition'
 import type { UserProfile } from '../domain/profile'
 import type { SmoothieItem } from '../domain/smoothie'
-import { completeQuest, type GameState } from '../domain/game'
+import { completeQuest, rolloverDailyQuests, type GameState } from '../domain/game'
 import { equipItem, normalizeAvatarState, selectGender, selectSkin, unequipItem, type AvatarState, type AvatarGender, type AvatarSelectionSlot, type AvatarSkin } from '../domain/avatar'
 import { grantAvatarUnlocks } from '../domain/avatarProgression'
 import { AVATAR_DEFAULTS, AVATAR_PARTS } from '../data/avatarManifest'
@@ -23,13 +23,16 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
   const now = options.now ?? (() => new Date())
   const [loaded] = useState(() => {
     const result = activeRepository.load()
-    if (result.state?.version !== 1) return { state: initial, warning: result.warning }
     const today = toLocalDateKey(now())
+    if (result.state?.version !== 1) return { state:{ ...initial, game:rolloverDailyQuests(initial.game, today) }, warning:result.warning }
     const weights = result.state.weightEntries === undefined ? { entries:[] } : parseWeightEntries(result.state.weightEntries, today)
     const events = result.state.completionEvents === undefined ? { events:[] } : parseCompletionEvents(result.state.completionEvents, today)
     const parsedPlan: { plan:WeeklyPlan|null|undefined; warning?:string } = result.state.weeklyPlan === undefined ? { plan:undefined } : parseWeeklyPlan(result.state.weeklyPlan, activityTemplates)
     const warnings = [result.warning, weights.warning, events.warning, parsedPlan.warning].filter(Boolean)
-    return { state:{ ...result.state, avatar:normalizeAvatarState(result.state.avatar), weeklyPlan:parsedPlan.plan ?? undefined, weightEntries:weights.entries, completionEvents:events.events }, warning:warnings.join(' ') || undefined }
+    const normalizedAvatar = normalizeAvatarState(result.state.avatar)
+    const avatar = grantAvatarUnlocks(normalizedAvatar, 0, result.state.game.level).state
+    const game = rolloverDailyQuests(result.state.game, today)
+    return { state:{ ...result.state, game, avatar, weeklyPlan:parsedPlan.plan ?? undefined, weightEntries:weights.entries, completionEvents:events.events }, warning:warnings.join(' ') || undefined }
   })
   const [hookState, setHookState] = useState(() => ({ state:loaded.state, avatarUnlockMessage:'' }))
   const { state, avatarUnlockMessage } = hookState
@@ -59,12 +62,13 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
           : undefined
       if (plannedId) weeklyPlan = setPlannedItemCompleted(weeklyPlan, plannedId, true)
     }
-    const game = completeQuest(current.game, id, `${id}-${date}`)
-    const unlocks = grantAvatarUnlocks(current.avatar, current.game.level, game.level)
+    const dailyGame = rolloverDailyQuests(current.game, date)
+    const game = completeQuest(dailyGame, id, `${id}-${date}`)
+    const unlocks = grantAvatarUnlocks(current.avatar, dailyGame.level, game.level)
     const unlockedNames = unlocks.newIds.flatMap(unlockedId => AVATAR_PARTS.find(part => part.id === unlockedId)?.name ?? [])
     let completionEvents = current.completionEvents ?? []
-    const quest = current.game.quests.find(item => item.id === id)
-    const rewarded = game !== current.game
+    const quest = dailyGame.quests.find(item => item.id === id)
+    const rewarded = game !== dailyGame
     const kind = id === 'activity' && plannedId ? 'planned-activity' : id === 'meal' && plannedId ? 'planned-meal' : id === 'recovery' ? 'recovery' : null
     if (rewarded && quest && kind) completionEvents = appendCompletionEvent(completionEvents, { id:`record-${kind}-${plannedId ?? date}`, date, kind, ...(plannedId ? { plannedItemId:plannedId } : {}), xpEarned:quest.xp })
     return {
@@ -75,7 +79,7 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
   const saveWeight = (weightKg: number) => {
     const date = toLocalDateKey(now())
     const result = upsertWeightEntry(state.weightEntries ?? [], { date, weightKg, recordedAt:now().toISOString() }, date)
-    if (result.ok) { setState(current => ({ ...current, weightEntries:result.entries })); setMutationMessage('오늘 기록을 저장했어요.') }
+    if (result.ok) { setState(current => ({ ...current, weightEntries:result.entries })); setMutationMessage('오늘 체중을 저장했어요.') }
     else setMutationMessage(result.message)
     return result
   }
@@ -99,6 +103,6 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     replaceActivity: (id: string, templateId: string) => state.weeklyPlan ? applyMutation(replacePlannedActivity(state.weeklyPlan, id, templateId, activityTemplates)) : ({ ok: false, message: '주간 계획이 없어요.' } as PlanMutationResult),
     completePlannedItem: (id: string) => setState(current => current.weeklyPlan ? { ...current, weeklyPlan: setPlannedItemCompleted(current.weeklyPlan, id, true) } : current),
     saveWeight,
-    deleteWeight: (date: string) => { setState(current => ({ ...current, weightEntries:deleteWeightEntry(current.weightEntries ?? [], date) })); setMutationMessage('체중 기록을 삭제했어요.') },
+    deleteWeight: (date: string) => { setState(current => ({ ...current, weightEntries:deleteWeightEntry(current.weightEntries ?? [], date) })); setMutationMessage('오늘 체중 기록을 삭제했어요.') },
   }
 }

@@ -1,5 +1,16 @@
 export interface Quest { id: string; title: string; kind: 'meal-log'|'activity'|'recovery'; xp: number; coins: number; completed: boolean }
-export interface GameState { level: number; xp: number; coins: number; quests: Quest[]; processedEventIds: string[] }
+export interface GameState { level: number; xp: number; coins: number; quests: Quest[]; processedEventIds: string[]; questDate?: string }
+
+export function rolloverDailyQuests(state:GameState, currentDate:string):GameState {
+  if (state.questDate === currentDate) return state
+  if (state.questDate === undefined) return { ...state, questDate:currentDate }
+  return {
+    ...state,
+    questDate:currentDate,
+    quests:state.quests.map(quest => quest.completed ? { ...quest, completed:false } : quest),
+  }
+}
+
 export function completeQuest(state: GameState, questId: string, eventId: string): GameState {
   if (state.processedEventIds.includes(eventId)) return state
   const quest = state.quests.find(item => item.id === questId)

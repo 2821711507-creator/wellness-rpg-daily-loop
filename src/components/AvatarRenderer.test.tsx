@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { AVATAR_DEFAULTS, AVATAR_PARTS } from '../data/avatarManifest'
 import { AVATAR_FACE_FEATURES, AVATAR_PIXEL_LAYERS } from '../data/avatarPixelLayers'
-import { getAvatarLayerIds, type AvatarState } from '../domain/avatar'
+import { getAvatarLayerIds, type AvatarSelectionSlot, type AvatarState } from '../domain/avatar'
 import { AvatarRenderer } from './AvatarRenderer'
 
 const appStyles = readFileSync('src/styles.css', 'utf8')
@@ -57,6 +57,48 @@ describe('AvatarRenderer', () => {
     const { container } = render(<AvatarRenderer state={state}/>)
     expect(screen.getByRole('img', { name:'여성 캐릭터, 짙은 피부, 웨이브 머리, 산보복, 반바지, 워킹화, 웰니스 캡, 물병 크로스백' })).toBeInTheDocument()
     expect([...container.querySelectorAll('[data-layer-id]')].map(node => node.getAttribute('data-layer-id'))).toEqual(getAvatarLayerIds(state))
+  })
+
+  it('resolves the complete manifest combination matrix to existing layers', () => {
+    const allIds = AVATAR_PARTS.map(part => part.id)
+    const parts = (slot:AvatarSelectionSlot) => AVATAR_PARTS.filter(part => part.selectionSlot === slot)
+    const optional = (slot:'top'|'bottom'|'shoes'|'hat'|'accessory') => [undefined, ...parts(slot)]
+    let combinations = 0
+
+    for (const gender of ['male', 'female'] as const) for (const skin of ['light', 'medium', 'deep'] as const) {
+      for (const hair of parts('hair')) for (const top of optional('top')) for (const bottom of optional('bottom')) {
+        for (const shoes of optional('shoes')) for (const hat of optional('hat')) for (const accessory of optional('accessory')) {
+          const state:AvatarState = {
+            gender,
+            skin,
+            unlockedIds:allIds,
+            equipped:{
+              hair:hair.id,
+              ...(top ? { top:top.id } : {}),
+              ...(bottom ? { bottom:bottom.id } : {}),
+              ...(shoes ? { shoes:shoes.id } : {}),
+              ...(hat ? { hat:hat.id } : {}),
+              ...(accessory ? { accessory:accessory.id } : {}),
+            },
+          }
+          const expected = [
+            ...(hair.layerIds?.slice(0, 1) ?? []),
+            `base-${gender}`,
+            ...(bottom ? bottom.layerIds ?? [bottom.id] : []),
+            ...(top ? top.layerIds ?? [top.id] : []),
+            ...(shoes ? shoes.layerIds ?? [shoes.id] : []),
+            ...(hair.layerIds?.slice(1) ?? [hair.id]),
+            ...(hat ? hat.layerIds ?? [hat.id] : []),
+            ...(accessory ? accessory.layerIds ?? [accessory.id] : []),
+          ]
+          expect(getAvatarLayerIds(state)).toEqual(expected)
+          expect(expected.every(id => (AVATAR_PIXEL_LAYERS[id]?.length ?? 0) > 0)).toBe(true)
+          combinations += 1
+        }
+      }
+    }
+
+    expect(combinations).toBe(3456)
   })
 
   it('keeps every pixel rectangle on the 96 by 144 integer grid', () => {

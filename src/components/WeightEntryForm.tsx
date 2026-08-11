@@ -24,6 +24,6 @@ export function WeightEntryForm({ today, entry, onSave, onDelete }: { today:stri
       <button type="submit" className="record-primary">체중 저장</button>
     </form>
     {entry && <div className="delete-row">{confirming ? <><span>정말 지울까요?</span><button type="button" className="record-text-button danger-text" onClick={remove}>삭제 확인</button><button type="button" className="record-text-button" onClick={() => setConfirming(false)}>취소</button></> : <button type="button" className="record-text-button" onClick={() => setConfirming(true)}>오늘 체중 삭제</button>}</div>}
-    {message && <p className="record-message" role={message.includes('저장했') || message.includes('삭제했') ? 'status' : 'alert'}>{message}</p>}
+    {message && <p className="record-message" role={message.includes('저장했') || message.includes('삭제했') ? undefined : 'alert'}>{message}</p>}
   </section>
 }

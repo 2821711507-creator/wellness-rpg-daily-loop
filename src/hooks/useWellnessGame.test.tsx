@@ -19,6 +19,39 @@ describe('useWellnessGame weekly plans', () => {
     expect(result.current.state.avatar).toMatchObject({ gender:'male', skin:'medium', equipped:{ hair:'hair-short' } })
   })
 
+  it('silently reconciles all level rewards while hydrating a direct legacy version-one fixture', () => {
+    const legacyFixture = {
+      version:1,
+      profile:null,
+      nutritionTarget:null,
+      smoothie:[],
+      selectedActivityId:'walk-basic',
+      game:{
+        level:2,
+        xp:7,
+        coins:115,
+        quests:[
+          { id:'meal', title:'스무디 기록하기', kind:'meal-log', xp:20, coins:10, completed:true },
+          { id:'activity', title:'오늘의 운동 완료', kind:'activity', xp:40, coins:20, completed:false },
+          { id:'recovery', title:'5분 스트레칭', kind:'recovery', xp:15, coins:5, completed:false },
+        ],
+        processedEventIds:['meal-2026-08-11'],
+      },
+      avatar:{ base:'feminine', unlockedIds:['top-runner'], equipped:{ top:'top-runner' } },
+      weightEntries:[],
+      completionEvents:[],
+    } as unknown as WellnessState
+    const repository = memoryRepository(legacyFixture)
+
+    const { result } = renderHook(() => useWellnessGame({ repository, now:() => new Date(2026, 7, 11, 7) }))
+
+    expect(result.current.state.avatar.unlockedIds).toEqual(expect.arrayContaining(['hair-wave', 'shoes-trainers', 'top-runner']))
+    expect(result.current.state.avatar.equipped).toEqual({ hair:'hair-short', top:'top-runner' })
+    expect(result.current.avatarUnlockMessage).toBe('')
+    expect(result.current.state.game.quests[0].completed).toBe(true)
+    expect(result.current.state.game.questDate).toBe('2026-08-11')
+  })
+
   it('grants crossed-level cosmetics once and never auto-equips them', () => {
     const seed = renderHook(() => useWellnessGame())
     const repository = memoryRepository({ ...seed.result.current.state, game:{ ...seed.result.current.state.game, xp:90 } })
@@ -60,6 +93,51 @@ describe('useWellnessGame weekly plans', () => {
     expect(result.current.avatarUnlockMessage).toContain('러닝복')
     expect(result.current.avatarUnlockMessage).not.toContain('운동화')
     expect(result.current.avatarUnlockMessage).not.toContain('웨이브 머리')
+  })
+
+  it('rolls quests forward by local date while keeping event IDs idempotent', () => {
+    let day = 11
+    const now = () => new Date(2026, 7, day, 7)
+    const { result } = renderHook(() => useWellnessGame({ now }))
+
+    act(() => {
+      result.current.complete('meal')
+      result.current.complete('activity')
+      result.current.complete('recovery')
+    })
+    const firstDayIds = [...result.current.state.game.processedEventIds]
+    expect(result.current.state.game.quests.every(quest => quest.completed)).toBe(true)
+
+    day = 12
+    act(() => result.current.complete('meal'))
+    expect(result.current.state.game.questDate).toBe('2026-08-12')
+    expect(result.current.state.game.quests.map(quest => quest.completed)).toEqual([true, false, false])
+    expect(result.current.state.game.processedEventIds).toEqual([...firstDayIds, 'meal-2026-08-12'])
+    const rewardedXp = result.current.state.game.xp
+    act(() => result.current.complete('meal'))
+    expect(result.current.state.game.xp).toBe(rewardedXp)
+    expect(result.current.state.game.processedEventIds).toEqual([...firstDayIds, 'meal-2026-08-12'])
+  })
+
+  it('reaches level nine and grants the complete reward track across daily rollovers', () => {
+    let day = 11
+    const now = () => new Date(2026, 7, day, 7)
+    const { result } = renderHook(() => useWellnessGame({ now }))
+
+    for (let dailyLoop = 0; dailyLoop < 11; dailyLoop += 1) {
+      act(() => {
+        result.current.complete('meal')
+        result.current.complete('activity')
+        result.current.complete('recovery')
+      })
+      day += 1
+    }
+
+    expect(result.current.state.game.level).toBe(9)
+    expect(result.current.state.avatar.unlockedIds).toEqual(expect.arrayContaining([
+      'hair-wave', 'shoes-trainers', 'top-runner', 'bottom-pants', 'shoes-walk', 'hair-tied',
+      'top-gym', 'bottom-shorts', 'top-walk', 'hat-wellness-cap', 'accessory-bottle-pouch',
+    ]))
   })
 
   it('preserves legacy rewards below their level and does not repeat unlock announcements on remount', () => {
@@ -177,7 +255,7 @@ describe('useWellnessGame weekly plans', () => {
     const { result } = renderHook(() => useWellnessGame({ now:() => new Date(2026, 7, 11, 7) }))
     act(() => result.current.saveWeight(72.46))
     expect(result.current.state.weightEntries?.[0]).toMatchObject({ date:'2026-08-11', weightKg:72.5 })
-    expect(result.current.mutationMessage).toBe('오늘 기록을 저장했어요.')
+    expect(result.current.mutationMessage).toBe('오늘 체중을 저장했어요.')
     act(() => result.current.saveWeight(72.1))
     expect(result.current.state.weightEntries).toHaveLength(1)
     expect(result.current.state.weightEntries?.[0].weightKg).toBe(72.1)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { AVATAR_DEFAULTS, AVATAR_PARTS } from '../data/avatarManifest'
-import { equipItem, getAvatarLayerIds, normalizeAvatarState, selectGender, selectSkin, unequipItem, type AvatarGender } from './avatar'
+import { AVATAR_LAYER_ORDER, equipItem, getAvatarLayerIds, normalizeAvatarState, selectGender, selectSkin, unequipItem, type AvatarGender } from './avatar'
 
 describe('layered avatar', () => {
   it('starts in an underlayer with no optional equipment', () => {
@@ -73,11 +73,23 @@ describe('layered avatar', () => {
     expect(result.equipped).toEqual({ hair:'hair-short', top:'top-runner' })
   })
 
-  it('returns the fixed visual layer order', () => {
-    const state = { ...AVATAR_DEFAULTS, gender:'female' as const, equipped:{ hair:'hair-wave', bottom:'bottom-pants', top:'top-runner', shoes:'shoes-trainers' } }
+  it('normalizes valid equipped items into permanent ownership', () => {
+    const result = normalizeAvatarState({
+      gender:'female',
+      skin:'medium',
+      unlockedIds:[],
+      equipped:{ hair:'hair-wave', top:'top-runner', hat:'hat-wellness-cap' },
+    })
+    expect(result.unlockedIds).toEqual(expect.arrayContaining(['hair-wave', 'top-runner', 'hat-wellness-cap']))
+    expect(result.equipped).toEqual({ hair:'hair-wave', top:'top-runner', hat:'hat-wellness-cap' })
+  })
+
+  it('returns every slot in the fixed visual layer order', () => {
+    expect(AVATAR_LAYER_ORDER).toEqual(['hairBack', 'base', 'bottom', 'top', 'shoes', 'hairFront', 'hat', 'accessory'])
+    const state = { ...AVATAR_DEFAULTS, gender:'female' as const, equipped:{ hair:'hair-wave', bottom:'bottom-pants', top:'top-runner', shoes:'shoes-trainers', hat:'hat-wellness-cap', accessory:'accessory-bottle-pouch' } }
     expect(getAvatarLayerIds(state)).toEqual([
       'hair-wave-back', 'base-female', 'bottom-pants', 'top-runner',
-      'shoes-trainers', 'hair-wave-front',
+      'shoes-trainers', 'hair-wave-front', 'hat-wellness-cap', 'accessory-bottle-pouch',
     ])
   })
 })

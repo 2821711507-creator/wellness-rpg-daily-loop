@@ -16,6 +16,22 @@ describe('daily loop', () => {
     expect(screen.getByText(/72\/100 XP/)).toBeInTheDocument()
   })
 
+  it('keeps one atomic live status node mounted while navigating every app view', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const status = screen.getByRole('status')
+    expect(status).toHaveAttribute('aria-atomic', 'true')
+
+    await user.click(screen.getByRole('button', { name:'시작하기' }))
+    expect(screen.getAllByRole('status')).toEqual([status])
+    await user.click(screen.getAllByRole('button', { name:'계획' })[0])
+    expect(screen.getAllByRole('status')).toEqual([status])
+    await user.click(screen.getByRole('button', { name:'오늘' }))
+    expect(screen.getAllByRole('status')).toEqual([status])
+    await user.click(screen.getByRole('button', { name:'캐릭터 꾸미기' }))
+    expect(screen.getAllByRole('status')).toEqual([status])
+  })
+
   it('creates and opens a seven-day weekly plan', async () => {
     const user = userEvent.setup()
     render(<App />)
@@ -118,6 +134,7 @@ describe('daily loop', () => {
     await user.click(screen.getByRole('button', { name:/오늘의 운동 완료/ }))
     await user.click(screen.getByRole('button', { name:/5분 스트레칭/ }))
     expect(screen.getByRole('status')).toHaveTextContent('웨이브 머리, 운동화 아이템을 해금했어요.')
+    expect(screen.getByTestId('avatar-unlock-toast')).toHaveTextContent('웨이브 머리, 운동화 아이템을 해금했어요.')
     await user.click(screen.getByRole('button', { name:'캐릭터 꾸미기' }))
     expect(screen.getByRole('status')).toHaveTextContent('웨이브 머리, 운동화 아이템을 해금했어요.')
 
@@ -133,5 +150,27 @@ describe('daily loop', () => {
 
     render(<App now={now} />)
     expect(screen.getByRole('img', { name:/짧은 머리, 운동화/ })).toBeInTheDocument()
+  })
+
+  it('reopens completed quests on the next local date and rewards the new event once', async () => {
+    const user = userEvent.setup()
+    let day = 11
+    const now = () => new Date(2026, 7, day, 7)
+    const first = render(<App now={now} />)
+    await user.click(screen.getByRole('button', { name:'시작하기' }))
+    await user.click(screen.getByRole('button', { name:/스무디 기록하기/ }))
+    await user.click(screen.getByRole('button', { name:/오늘의 운동 완료/ }))
+    await user.click(screen.getByRole('button', { name:/5분 스트레칭/ }))
+    expect(screen.getByText('3/3')).toBeInTheDocument()
+    first.unmount()
+
+    day = 12
+    render(<App now={now} />)
+    expect(screen.getByText('0/3')).toBeInTheDocument()
+    const mealQuest = screen.getByRole('button', { name:/스무디 기록하기/ })
+    expect(mealQuest).toBeEnabled()
+    await user.click(mealQuest)
+    expect(screen.getByText('1/3')).toBeInTheDocument()
+    expect(screen.getByText(/27\/100 XP/)).toBeInTheDocument()
   })
 })

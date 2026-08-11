@@ -9,15 +9,15 @@ const SKINS:{ id:AvatarSkin; name:string }[] = [{ id:'light', name:'밝은 피�
 const GROUPS:{ slot:AvatarSelectionSlot; name:string }[] = [{ slot:'hair', name:'머리' }, { slot:'top', name:'상의' }, { slot:'bottom', name:'하의' }, { slot:'shoes', name:'신발' }, { slot:'hat', name:'모자' }, { slot:'accessory', name:'액세서리' }]
 const OPTIONAL_SLOTS:AvatarSelectionSlot[] = ['top', 'bottom', 'shoes', 'hat', 'accessory']
 
-export function AvatarCustomizer({ state, gameLevel, onGenderChange, onSkinChange, onEquip, onUnequip, onClose }: { state:AvatarState; gameLevel:number; onGenderChange:(gender:AvatarGender)=>void; onSkinChange:(skin:AvatarSkin)=>void; onEquip:(itemId:string)=>void; onUnequip:(slot:AvatarSelectionSlot)=>void; onClose:()=>void }) {
+export function AvatarCustomizer({ state, gameLevel:_gameLevel, onGenderChange, onSkinChange, onEquip, onUnequip, onClose }: { state:AvatarState; gameLevel:number; onGenderChange:(gender:AvatarGender)=>void; onSkinChange:(skin:AvatarSkin)=>void; onEquip:(itemId:string)=>void; onUnequip:(slot:AvatarSelectionSlot)=>void; onClose:()=>void }) {
   useEffect(() => {
     const closeOnEscape = (event:KeyboardEvent) => { if (event.key === 'Escape') onClose() }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [onClose])
-  const isLocked = (unlockLevel:number|undefined) => (unlockLevel ?? 1) > gameLevel
+  const isLocked = (itemId:string) => !state.unlockedIds.includes(itemId)
   const upcomingRewards = AVATAR_PARTS
-    .filter(part => part.selectionSlot !== 'base' && isLocked(part.unlockLevel))
+    .filter(part => part.selectionSlot !== 'base' && part.unlockLevel !== undefined && isLocked(part.id))
     .sort((left, right) => (left.unlockLevel ?? 1) - (right.unlockLevel ?? 1) || left.id.localeCompare(right.id))
     .filter((part, index, parts) => parts.findIndex(other => other.id === part.id && other.unlockLevel === part.unlockLevel) === index)
     .slice(0, 3)
@@ -30,8 +30,8 @@ export function AvatarCustomizer({ state, gameLevel, onGenderChange, onSkinChang
       {GROUPS.map(group => {
         const choices = AVATAR_PARTS.filter(part => part.selectionSlot === group.slot)
         const optional = OPTIONAL_SLOTS.includes(group.slot)
-        return <fieldset key={group.slot}><legend>{group.name}</legend><div className="avatar-choice-grid">{optional && <button className="avatar-empty-choice" aria-pressed={!state.equipped[group.slot]} onClick={() => onUnequip(group.slot)}>{group.name} 없음</button>}{choices.map(item => isLocked(item.unlockLevel)
-          ? <button key={item.id} className="avatar-locked-choice" disabled><LockKeyhole aria-hidden="true"/><span>{item.name}</span><small>레벨 {item.unlockLevel}에 해금</small></button>
+        return <fieldset key={group.slot}><legend>{group.name}</legend><div className="avatar-choice-grid">{optional && <button className="avatar-empty-choice" aria-pressed={!state.equipped[group.slot]} onClick={() => onUnequip(group.slot)}>{group.name} 없음</button>}{choices.map(item => isLocked(item.id)
+          ? <button key={item.id} className="avatar-locked-choice" disabled><LockKeyhole aria-hidden="true"/><span>{item.name}</span><small>{item.unlockLevel === undefined ? '아직 해금되지 않음' : `레벨 ${item.unlockLevel}에 해금`}</small></button>
           : <button key={item.id} aria-pressed={state.equipped[group.slot] === item.id} onClick={() => onEquip(item.id)}>{item.name}</button>)}</div></fieldset>
       })}
       {upcomingRewards.length > 0 && <aside className="avatar-reward-preview" aria-labelledby="avatar-reward-heading"><h3 id="avatar-reward-heading"><LockKeyhole aria-hidden="true"/>다음 보상</h3><ol>{upcomingRewards.map(item => <li key={item.id}><span>{item.name}</span><small>레벨 {item.unlockLevel}</small></li>)}</ol></aside>}

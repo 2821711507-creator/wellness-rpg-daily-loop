@@ -6,6 +6,7 @@ export type AvatarSlot = 'base'|'bottom'|'top'|'shoes'|'hairBack'|'hairFront'|'h
 export type AvatarSelectionSlot = 'hair'|'top'|'bottom'|'shoes'|'hat'|'accessory'
 export interface AvatarState { gender:AvatarGender; skin:AvatarSkin; unlockedIds:string[]; equipped:Partial<Record<AvatarSelectionSlot,string>> }
 export interface AvatarPart { id:string; name:string; slot:AvatarSlot; selectionSlot:AvatarSelectionSlot|'base'; layerIds?:string[]; unlockLevel?:number; author:'project'; license:'project-owned' }
+export const AVATAR_LAYER_ORDER:AvatarSlot[] = ['hairBack', 'base', 'bottom', 'top', 'shoes', 'hairFront', 'hat', 'accessory']
 
 const REQUIRED: AvatarSelectionSlot[] = ['hair']
 const UNEQUIPPABLE: AvatarSelectionSlot[] = ['top', 'bottom', 'shoes', 'hat', 'accessory']
@@ -29,7 +30,8 @@ export function normalizeAvatarState(value:unknown):AvatarState {
     else if (REQUIRED.includes(slot)) equipped[slot] = AVATAR_DEFAULTS.equipped[slot]
   }
   const unlocked = Array.isArray(value.unlockedIds) ? value.unlockedIds.flatMap(id => partFor(id)?.id ?? []) : []
-  return { gender, skin, unlockedIds:[...new Set([...AVATAR_DEFAULTS.unlockedIds, ...unlocked])], equipped }
+  const equippedIds = Object.values(equipped).filter((id): id is string => id !== undefined)
+  return { gender, skin, unlockedIds:[...new Set([...AVATAR_DEFAULTS.unlockedIds, ...unlocked, ...equippedIds])], equipped }
 }
 
 export function selectGender(state:AvatarState, gender:AvatarGender):AvatarState { return { ...state, gender } }
@@ -49,15 +51,19 @@ export function unequipItem(state:AvatarState, slot:AvatarSelectionSlot):AvatarS
 
 export function getAvatarLayerIds(state:AvatarState):string[] {
   const hair = partFor(state.equipped.hair)
-  const layers: string[] = [...(hair?.layerIds?.slice(0, 1) ?? []), `base-${state.gender}`]
-  for (const slot of ['bottom', 'top', 'shoes'] as AvatarSelectionSlot[]) {
+  const selectedLayers = (slot:AvatarSelectionSlot) => {
     const part = partFor(state.equipped[slot])
-    if (part) layers.push(...(part.layerIds ?? [part.id]))
+    return part ? part.layerIds ?? [part.id] : []
   }
-  if (hair) layers.push(...(hair.layerIds?.slice(1) ?? [hair.id]))
-  for (const slot of ['hat', 'accessory'] as AvatarSelectionSlot[]) {
-    const part = partFor(state.equipped[slot])
-    if (part) layers.push(...(part.layerIds ?? [part.id]))
+  const layersBySlot:Record<AvatarSlot,string[]> = {
+    hairBack:hair?.layerIds?.slice(0, 1) ?? [],
+    base:[`base-${state.gender}`],
+    bottom:selectedLayers('bottom'),
+    top:selectedLayers('top'),
+    shoes:selectedLayers('shoes'),
+    hairFront:hair ? hair.layerIds?.slice(1) ?? [hair.id] : [],
+    hat:selectedLayers('hat'),
+    accessory:selectedLayers('accessory'),
   }
-  return layers
+  return AVATAR_LAYER_ORDER.flatMap(slot => layersBySlot[slot])
 }
