@@ -9,7 +9,7 @@ describe('layered avatar', () => {
   })
 
   it('defines the approved deterministic reward track', () => {
-    expect(Object.fromEntries(AVATAR_PARTS.filter(p => p.unlockLevel).map(p => [p.id, p.unlockLevel]))).toMatchObject({
+    expect(Object.fromEntries(AVATAR_PARTS.filter(p => p.unlockLevel).map(p => [p.id, p.unlockLevel]))).toEqual({
       'shoes-trainers':2, 'hair-wave':2, 'top-runner':3, 'bottom-pants':4,
       'shoes-walk':5, 'hair-tied':5, 'top-gym':6, 'bottom-shorts':6,
       'top-walk':7, 'hat-wellness-cap':8, 'accessory-bottle-pouch':9,

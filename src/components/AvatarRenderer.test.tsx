@@ -1,18 +1,21 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { AVATAR_DEFAULTS, AVATAR_PARTS } from '../data/avatarManifest'
-import { AVATAR_PIXEL_LAYERS } from '../data/avatarPixelLayers'
+import { AVATAR_FACE_FEATURES, AVATAR_PIXEL_LAYERS } from '../data/avatarPixelLayers'
 import { getAvatarLayerIds, type AvatarState } from '../domain/avatar'
 import { AvatarRenderer } from './AvatarRenderer'
 
 describe('AvatarRenderer', () => {
-  it('renders the premium 96 by 144 grid and readable face groups', () => {
-    render(<AvatarRenderer state={AVATAR_DEFAULTS}/>)
-    const avatar = screen.getByRole('img', { name:'남성 캐릭터, 중간 피부, 짧은 머리' })
-    expect(avatar).toHaveAttribute('viewBox', '0 0 96 144')
-    expect(avatar).toHaveAttribute('shape-rendering', 'crispEdges')
-    for (const feature of ['eyes', 'brows', 'nose', 'mouth', 'underlayer']) {
-      expect(avatar.querySelector(`[data-face-feature="${feature}"]`)).toBeTruthy()
+  it('renders the premium 96 by 144 grid and non-empty face groups for both genders', () => {
+    const { rerender } = render(<AvatarRenderer state={AVATAR_DEFAULTS}/>)
+    for (const gender of ['male', 'female'] as const) {
+      rerender(<AvatarRenderer state={{ ...AVATAR_DEFAULTS, gender }}/>)
+      const avatar = screen.getByRole('img', { name:new RegExp(gender === 'male' ? '^남성 캐릭터' : '^여성 캐릭터') })
+      expect(avatar).toHaveAttribute('viewBox', '0 0 96 144')
+      expect(avatar).toHaveAttribute('shape-rendering', 'crispEdges')
+      for (const feature of AVATAR_FACE_FEATURES) {
+        expect(avatar.querySelector(`[data-face-feature="${feature}"]`)?.querySelectorAll('rect').length, `${gender} ${feature}`).toBeGreaterThan(0)
+      }
     }
   })
 

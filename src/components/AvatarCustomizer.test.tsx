@@ -1,4 +1,6 @@
 import { useState } from 'react'
+// @ts-expect-error Vitest runs in Node while the app-only TypeScript config intentionally omits Node globals.
+import { readFileSync } from 'node:fs'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
@@ -7,11 +9,22 @@ import { equipItem, selectGender, selectSkin, unequipItem, type AvatarGender, ty
 import { AvatarCard } from './AvatarCard'
 import { AvatarCustomizer } from './AvatarCustomizer'
 
+const avatarStyles = readFileSync('src/avatar.css', 'utf8')
+
 const fullyUnlockedAvatar = (): AvatarState => ({ ...AVATAR_DEFAULTS, unlockedIds:AVATAR_PARTS.filter(part => part.selectionSlot !== 'base').map(part => part.id), equipped:{ ...AVATAR_DEFAULTS.equipped } })
 
 function Harness({ onClose = vi.fn() }: { onClose?:()=>void }) {
   const [state, setState] = useState<AvatarState>(fullyUnlockedAvatar)
   return <AvatarCustomizer state={state} gameLevel={9} onGenderChange={(gender:AvatarGender) => setState(current => selectGender(current, gender))} onSkinChange={(skin:AvatarSkin) => setState(current => selectSkin(current, skin))} onEquip={id => setState(current => equipItem(current, id))} onUnequip={slot => setState(current => unequipItem(current, slot))} onClose={onClose}/>
+}
+
+function contrastRatio(foreground:string, background:string) {
+  const luminance = (hex:string) => {
+    const channels = hex.match(/[\da-f]{2}/gi)!.map(channel => parseInt(channel, 16) / 255).map(channel => channel <= .03928 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4)
+    return .2126 * channels[0] + .7152 * channels[1] + .0722 * channels[2]
+  }
+  const values = [luminance(foreground), luminance(background)].sort((left, right) => right - left)
+  return (values[0] + .05) / (values[1] + .05)
 }
 
 describe('layered avatar UI', () => {
@@ -67,5 +80,13 @@ describe('layered avatar UI', () => {
     expect(onUnequip).toHaveBeenCalledWith('shoes')
     await user.click(screen.getByRole('button', { name:/운동화.*레벨 2/ }))
     expect(onEquip).not.toHaveBeenCalled()
+  })
+
+  it('keeps active avatar-view text at WCAG AA contrast', () => {
+    const scopedTokens = avatarStyles.match(/\.app-shell:has\(>\.avatar-studio\)\{--muted:(#[\da-f]{6});--blue-strong:(#[\da-f]{6})\}/i)
+    expect(scopedTokens, 'avatar view color overrides').not.toBeNull()
+    const [, muted, blueStrong] = scopedTokens!
+    expect(contrastRatio(muted, '#ffffff')).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio(blueStrong, '#dfefff')).toBeGreaterThanOrEqual(4.5)
   })
 })

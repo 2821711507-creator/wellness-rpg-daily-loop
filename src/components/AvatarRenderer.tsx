@@ -32,7 +32,7 @@ const shoePalette = (light:string, base:string, shade:string) => ({
   '--avatar-shoe-shade':shade,
 } as CSSProperties)
 
-const LAYER_PALETTES:Record<string,CSSProperties> = {
+const LAYER_PALETTES:Partial<Record<string,CSSProperties>> = {
   'top-runner':fabricPalette('#e7f5ff', '#9bcce9', '#6098c1', '#2f5f88'),
   'top-gym':fabricPalette('#ffd6cc', '#de8779', '#aa554f', '#71383e'),
   'top-walk':fabricPalette('#d9ebe1', '#91b9a5', '#5f8b78', '#355e54'),
