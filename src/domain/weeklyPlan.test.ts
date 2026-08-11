@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SmoothieItem } from './smoothie'
 import {
   calculateWeeklySummary,
+  formatKoreanDate,
   generateWeeklyPlan,
   getMonday,
   getWeekDateKeys,
@@ -21,6 +22,10 @@ import {
 import { activityTemplates } from '../data/activityTemplates'
 
 describe('weekly plan dates', () => {
+  it('formats the visible date from the supplied local day', () => {
+    expect(formatKoreanDate(new Date(2026, 7, 11, 23, 30))).toBe('2026년 8월 11일')
+  })
+
   it('resolves Sunday to the preceding Monday', () => {
     expect(toLocalDateKey(getMonday(new Date(2026, 7, 16, 23, 30)))).toBe('2026-08-10')
   })

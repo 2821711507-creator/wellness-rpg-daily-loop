@@ -28,7 +28,7 @@ describe('daily loop', () => {
 
   it('synchronizes today activity completion with the weekly summary', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    render(<App now={() => new Date(2026, 7, 10, 12)} />)
     await user.click(screen.getByRole('button', { name: '시작하기' }))
     await user.click(screen.getAllByRole('button', { name: '계획' })[0])
     await user.click(screen.getByRole('button', { name: '이번 주 계획 만들기' }))

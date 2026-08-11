@@ -68,6 +68,10 @@ export function toLocalDateKey(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+export function formatKoreanDate(date: Date): string {
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
+}
+
 export function getMonday(date: Date): Date {
   const result = new Date(date.getFullYear(), date.getMonth(), date.getDate())
   const offset = (result.getDay() + 6) % 7
