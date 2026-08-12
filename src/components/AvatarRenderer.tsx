@@ -9,6 +9,13 @@ const SKIN_PALETTES = {
   medium:['#efb17f', '#cc8058', '#9d543e', '#64332a'],
   deep:['#b97854', '#8b553c', '#603326', '#381d1d'],
 } as const
+// Raster base art is painted at the "medium" tone; light/deep approximate the
+// same shift with a CSS filter since no separate raster asset exists per tone.
+const RASTER_SKIN_FILTERS = {
+  light:'brightness(1.2) saturate(0.82)',
+  medium:'none',
+  deep:'brightness(0.6) saturate(1.2)',
+} as const
 
 const FILL:Record<PixelFill,string> = {
   skinLight:'var(--avatar-skin-light)', skin:'var(--avatar-skin)', skinShade:'var(--avatar-skin-shade)', skinDeep:'var(--avatar-skin-deep)',
@@ -94,6 +101,7 @@ export function AvatarRenderer({ state, className = '' }: { state:AvatarState; c
       ? `/avatar/v2/${state.gender}-top-runner.png`
       : `/avatar/v2/base-${state.gender}.png`
   const hasTiedHair = state.equipped.hair === 'hair-tied'
+  const rasterSkinFilter = RASTER_SKIN_FILTERS[state.skin]
 
   return <svg className={`avatar-renderer ${className}`.trim()} viewBox="0 0 96 144" role="img" aria-label={name} shapeRendering="crispEdges" style={style}>
     {hasTiedHair && <defs><mask id={hairMaskId} maskUnits="userSpaceOnUse" style={{ maskType:'alpha' }}>
@@ -105,9 +113,9 @@ export function AvatarRenderer({ state, className = '' }: { state:AvatarState; c
       const isRasterBottom = id === 'bottom-pants'
       return <g key={id} data-layer-id={id} style={LAYER_PALETTES[id]}>
         {isBase
-          ? <image data-raster-base href={rasterBaseSrc} width="96" height="144" mask={hasTiedHair ? `url(#${hairMaskId})` : undefined} style={{ imageRendering:'pixelated' }}/>
+          ? <image data-raster-base href={rasterBaseSrc} width="96" height="144" mask={hasTiedHair ? `url(#${hairMaskId})` : undefined} style={{ imageRendering:'pixelated', filter:rasterSkinFilter }}/>
           : isRasterBottom
-            ? <image data-raster-bottom href={`/avatar/v2/${state.gender}-bottom-pants.png`} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
+            ? <image data-raster-bottom href={`/avatar/v2/${state.gender}-bottom-pants.png`} width="96" height="144" style={{ imageRendering:'pixelated', filter:rasterSkinFilter }}/>
             : id === 'hair-tied-front'
               ? <image data-raster-hair href={`/avatar/v2/${state.gender}-hair-tied.png`} width="96" height="144" style={{ imageRendering:'pixelated' }}/>
               : !isLegacyHair && id !== 'top-runner' && id !== 'shoes-trainers' && id !== 'shoes-walk' && <Pixels pixels={AVATAR_PIXEL_LAYERS[id] ?? []}/>
