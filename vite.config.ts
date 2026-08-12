@@ -11,6 +11,9 @@ export default defineConfig({
     // `deno test`, not Vitest) -- they use Deno-only import specifiers
     // (`jsr:...`, `npm:...`, relative `.ts` imports) that Vitest's resolver
     // cannot handle, so they must be excluded from Vitest's own test discovery.
-    exclude: [...configDefaults.exclude, 'supabase/**'],
+    // `.worktrees/**` holds sibling git worktrees for unrelated branches (see
+    // .gitignore) -- Vitest doesn't honor .gitignore, so without this it
+    // discovers and runs their test suites too when run from the repo root.
+    exclude: [...configDefaults.exclude, 'supabase/**', '.worktrees/**'],
   },
 })
