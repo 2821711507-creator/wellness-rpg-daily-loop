@@ -42,6 +42,17 @@ async function createDefaultServices(): Promise<AppServices> {
 
 const LoadingScreen = () => <p className="app-loading" role="status">불러오는 중…</p>
 
+/** Shown instead of an indefinite `LoadingScreen` when the initial cloud load (or a
+ * `reloadRemote` retry) throws -- e.g. a transient network blip on the active-session
+ * check. Without this, a thrown load leaves the user stuck on the loading spinner with
+ * no way back in. */
+const LoadErrorScreen = ({ onRetry }: { onRetry: () => void }) => (
+  <div className="app-load-error" role="alert">
+    <p>클라우드 상태를 불러오지 못했어요.</p>
+    <button type="button" onClick={onRetry}>다시 시도</button>
+  </div>
+)
+
 /**
  * Renders exactly what `App` used to render directly: onboarding, then the today/plan/records/avatar
  * views over a `useWellnessGame` instance. Driven purely by local storage when `initialState`/`onStateChange`
@@ -88,7 +99,9 @@ export function WellnessApp({ now = () => new Date(), initialState, onStateChang
 /** Loads the authenticated user's own cloud state (importing legacy local data exactly once, on first registration) and drives `WellnessApp` from it. Keyed by `userId` at the call site so switching users always remounts fresh. */
 function CloudConnectedApp({ userId, username, cloudRepository, justRegistered, now, onChangePassword, onLogout, authError, clearAuthError }: { userId: string; username: string; cloudRepository: CloudWellnessRepository<WellnessState>; justRegistered: boolean; now: () => Date; onChangePassword: UseAuthResult['changePassword']; onLogout: UseAuthResult['logout']; authError: string | null; clearAuthError: () => void }) {
   const cloud = useCloudWellness({ userId, repository: cloudRepository, justRegistered, now })
-  if (cloud.initialState === undefined) return <LoadingScreen/>
+  if (cloud.initialState === undefined) {
+    return cloud.syncState === 'error' ? <LoadErrorScreen onRetry={cloud.reloadRemote}/> : <LoadingScreen/>
+  }
   return <WellnessApp
     now={now}
     initialState={cloud.initialState}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CloudWellnessRepository } from '../cloud/cloudWellnessRepository'
+import type { CloudSaveResult, CloudWellnessRepository } from '../cloud/cloudWellnessRepository'
 import { migrateLegacyState, type LegacyStorage } from '../cloud/legacyStateMigrator'
 import { defaultWellnessState, type WellnessState } from './useWellnessGame'
 
@@ -11,6 +11,11 @@ const DEBOUNCE_MS = 300
 export type CloudWellnessStorage = LegacyStorage & { setItem(key: string, value: string): void }
 
 const pendingKey = (userId: string) => `wellness-rpg:pending:${userId}`
+/** Set alongside the pending blob whenever a save is blocked by a revision conflict, and
+ * cleared only when the user explicitly resolves it (via `reloadRemote`). Its presence at
+ * boot is what lets the hook re-enter `conflict` instead of silently resaving a stale local
+ * edit over a remote revision that may have moved on even further in the meantime. */
+const conflictKey = (userId: string) => `wellness-rpg:conflict:${userId}`
 
 export interface UseCloudWellnessOptions {
   userId: string
@@ -58,6 +63,8 @@ export function useCloudWellness({
 
   const persistPending = useCallback((state: WellnessState) => storage.setItem(pendingKey(userId), JSON.stringify(state)), [storage, userId])
   const clearPending = useCallback(() => storage.removeItem(pendingKey(userId)), [storage, userId])
+  const persistConflictMarker = useCallback(() => storage.setItem(conflictKey(userId), '1'), [storage, userId])
+  const clearConflictMarker = useCallback(() => storage.removeItem(conflictKey(userId)), [storage, userId])
 
   const runSave = useCallback(async () => {
     if (conflictRef.current || savingRef.current) return
@@ -65,7 +72,19 @@ export function useCloudWellness({
     if (state === undefined) return
     savingRef.current = true
     setSyncState('saving')
-    const result = await repository.save(userId, state, revisionRef.current)
+    let result: CloudSaveResult
+    try {
+      result = await repository.save(userId, state, revisionRef.current)
+    } catch {
+      // A thrown rejection (e.g. a transient `assertActiveUser` network blip) must be
+      // treated exactly like a resolved `{ok:false, reason:'error'}`: reset `savingRef`
+      // (otherwise every future save in this session is permanently wedged) and persist
+      // the edit so it survives a refresh instead of being silently lost.
+      savingRef.current = false
+      persistPending(state)
+      setSyncState(typeof navigator !== 'undefined' && navigator.onLine === false ? 'waiting' : 'error')
+      return
+    }
     savingRef.current = false
     if (result.ok) {
       revisionRef.current = result.revision
@@ -75,12 +94,13 @@ export function useCloudWellness({
     } else if (result.reason === 'conflict') {
       conflictRef.current = true
       persistPending(state)
+      persistConflictMarker()
       setSyncState('conflict')
     } else {
       persistPending(state)
       setSyncState(typeof navigator !== 'undefined' && navigator.onLine === false ? 'waiting' : 'error')
     }
-  }, [repository, userId, clearPending, persistPending])
+  }, [repository, userId, clearPending, persistPending, persistConflictMarker])
 
   useEffect(() => {
     let active = true
@@ -88,23 +108,39 @@ export function useCloudWellness({
     setInitialState(undefined)
     conflictRef.current = false
     ;(async () => {
-      if (justRegistered) {
-        try { await migrateLegacyState({ userId, repository, storage, now }) } catch { /* best-effort; remote load below still proceeds */ }
+      try {
+        if (justRegistered) {
+          try { await migrateLegacyState({ userId, repository, storage, now }) } catch { /* best-effort; remote load below still proceeds */ }
+        }
+        const pendingRaw = storage.getItem(pendingKey(userId))
+        const hasConflictMarker = storage.getItem(conflictKey(userId)) !== null
+        const loaded = await repository.load(userId)
+        if (!active) return
+        revisionRef.current = loaded.revision
+        let effectiveState = loaded.state ?? defaultWellnessState
+        let hadPending = false
+        if (pendingRaw) {
+          try { effectiveState = JSON.parse(pendingRaw) as WellnessState; hadPending = true }
+          catch { /* corrupt pending cache: fall back to the remote state */ }
+        }
+        latestStateRef.current = effectiveState
+        setInitialState(effectiveState)
+        if (hadPending && hasConflictMarker) {
+          // A conflict from a previous session was never explicitly resolved (the app was
+          // just closed and reopened instead). Re-enter `conflict` rather than resaving the
+          // stale pending edit, which would now match this session's freshly-loaded revision
+          // and silently overwrite whatever a different device wrote in the meantime.
+          conflictRef.current = true
+          setSyncState('conflict')
+          return
+        }
+        if (hasConflictMarker) clearConflictMarker() // stale marker with nothing pending to protect
+        setSyncState('saved')
+        if (hadPending) void runSave()
+      } catch {
+        if (!active) return
+        setSyncState('error')
       }
-      const pendingRaw = storage.getItem(pendingKey(userId))
-      const loaded = await repository.load(userId)
-      if (!active) return
-      revisionRef.current = loaded.revision
-      let effectiveState = loaded.state ?? defaultWellnessState
-      let hadPending = false
-      if (pendingRaw) {
-        try { effectiveState = JSON.parse(pendingRaw) as WellnessState; hadPending = true }
-        catch { /* corrupt pending cache: fall back to the remote state */ }
-      }
-      latestStateRef.current = effectiveState
-      setInitialState(effectiveState)
-      setSyncState('saved')
-      if (hadPending) void runSave()
       // eslint-disable-next-line react-hooks/exhaustive-deps
     })()
     return () => { active = false }
@@ -128,17 +164,22 @@ export function useCloudWellness({
   const reloadRemote = useCallback(() => {
     conflictRef.current = false
     clearPending()
+    clearConflictMarker()
     setSyncState('loading')
     setInitialState(undefined)
     void (async () => {
-      const loaded = await repository.load(userId)
-      revisionRef.current = loaded.revision
-      const state = loaded.state ?? defaultWellnessState
-      latestStateRef.current = state
-      setInitialState(state)
-      setSyncState('saved')
+      try {
+        const loaded = await repository.load(userId)
+        revisionRef.current = loaded.revision
+        const state = loaded.state ?? defaultWellnessState
+        latestStateRef.current = state
+        setInitialState(state)
+        setSyncState('saved')
+      } catch {
+        setSyncState('error')
+      }
     })()
-  }, [repository, userId, clearPending])
+  }, [repository, userId, clearPending, clearConflictMarker])
 
   const retry = useCallback(() => { void runSave() }, [runSave])
 

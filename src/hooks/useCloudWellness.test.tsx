@@ -165,6 +165,95 @@ describe('useCloudWellness', () => {
     expect(storage.getItem('wellness-rpg:pending:u1')).toEqual(JSON.stringify(changed))
   })
 
+  it('treats a thrown repository.save exception the same as a resolved {ok:false, reason:"error"}: persists pending state, unwedges savingRef, and retry() still works', async () => {
+    const repository = fakeRepository({ load: { state: defaultWellnessState, revision: 1 } })
+    const storage = fakeStorage()
+    Object.defineProperty(window.navigator, 'onLine', { value: true, configurable: true })
+    const { result } = renderHook(() => useCloudWellness({ userId: 'u1', repository, storage }))
+    await waitFor(() => expect(result.current.initialState).toBeDefined())
+
+    repository.save.mockRejectedValueOnce(new Error('network blip'))
+    const changed = { ...defaultWellnessState, game: { ...defaultWellnessState.game, coins: 5 } }
+    act(() => result.current.onStateChange(changed))
+    await wait(350)
+
+    // Must not hang on "saving" forever, and must not silently lose the edit.
+    await waitFor(() => expect(result.current.syncState).toBe('error'))
+    expect(storage.getItem('wellness-rpg:pending:u1')).toEqual(JSON.stringify(changed))
+
+    // savingRef must have actually been reset by the throw -- otherwise every future
+    // save (including this retry) is permanently blocked.
+    repository.save.mockResolvedValueOnce({ ok: true, revision: 2 })
+    await act(async () => { result.current.retry() })
+    await waitFor(() => expect(result.current.syncState).toBe('saved'))
+    expect(storage.getItem('wellness-rpg:pending:u1')).toBeNull()
+  })
+
+  it('goes to waiting (not error) when a thrown repository.save happens while offline', async () => {
+    const repository = fakeRepository({ load: { state: defaultWellnessState, revision: 1 } })
+    const storage = fakeStorage()
+    Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true })
+    const { result } = renderHook(() => useCloudWellness({ userId: 'u1', repository, storage }))
+    await waitFor(() => expect(result.current.initialState).toBeDefined())
+
+    repository.save.mockRejectedValueOnce(new Error('network blip'))
+    const changed = { ...defaultWellnessState, game: { ...defaultWellnessState.game, coins: 6 } }
+    act(() => result.current.onStateChange(changed))
+    await wait(350)
+
+    await waitFor(() => expect(result.current.syncState).toBe('waiting'))
+    expect(storage.getItem('wellness-rpg:pending:u1')).toEqual(JSON.stringify(changed))
+  })
+
+  it('surfaces an error instead of hanging forever when the initial repository.load throws', async () => {
+    const repository = fakeRepository()
+    repository.load.mockRejectedValueOnce(new Error('network blip'))
+    const storage = fakeStorage()
+    const { result } = renderHook(() => useCloudWellness({ userId: 'u1', repository, storage }))
+
+    await waitFor(() => expect(result.current.syncState).toBe('error'))
+    expect(result.current.initialState).toBeUndefined()
+  })
+
+  it('surfaces an error instead of hanging forever when reloadRemote throws', async () => {
+    const repository = fakeRepository({ load: { state: defaultWellnessState, revision: 1 } })
+    const storage = fakeStorage()
+    const { result } = renderHook(() => useCloudWellness({ userId: 'u1', repository, storage }))
+    await waitFor(() => expect(result.current.initialState).toBeDefined())
+
+    repository.load.mockRejectedValueOnce(new Error('network blip'))
+    await act(async () => { result.current.reloadRemote() })
+
+    await waitFor(() => expect(result.current.syncState).toBe('error'))
+  })
+
+  it('re-enters conflict state on the next boot if a previous conflict was never explicitly resolved, and does not silently resave over a newer remote revision', async () => {
+    const repository = fakeRepository({ load: { state: defaultWellnessState, revision: 1 }, save: { ok: false, reason: 'conflict' } })
+    const storage = fakeStorage()
+    const first = renderHook(() => useCloudWellness({ userId: 'u1', repository, storage }))
+    await waitFor(() => expect(first.result.current.initialState).toBeDefined())
+
+    const changed = { ...defaultWellnessState, game: { ...defaultWellnessState.game, coins: 99 } }
+    act(() => first.result.current.onStateChange(changed))
+    await wait(350)
+    await waitFor(() => expect(first.result.current.syncState).toBe('conflict'))
+    first.unmount()
+
+    // Simulate the app being closed and reopened: same storage (still holding the
+    // pending edit and whatever conflict marker the fix adds), a fresh hook instance.
+    // The remote has moved on even further in the meantime.
+    repository.load.mockResolvedValue({ state: remoteState, revision: 5 })
+    repository.save.mockClear()
+
+    const second = renderHook(() => useCloudWellness({ userId: 'u1', repository, storage }))
+    await waitFor(() => expect(second.result.current.initialState).toBeDefined())
+
+    expect(second.result.current.syncState).toBe('conflict')
+    expect(second.result.current.initialState).toEqual(changed)
+    await wait(350)
+    expect(repository.save).not.toHaveBeenCalled()
+  })
+
   it('retry() re-attempts the save after an error and transitions to saved on success', async () => {
     const repository = fakeRepository({ load: { state: defaultWellnessState, revision: 1 }, save: { ok: false, reason: 'error' } })
     const storage = fakeStorage()
