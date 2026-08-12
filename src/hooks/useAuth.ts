@@ -12,6 +12,7 @@ export interface UseAuthResult {
   requestRecovery:(username:string)=>Promise<AuthResult<void>>
   changePassword:(password:string)=>Promise<AuthResult<void>>
   logout:()=>Promise<void>
+  clearError:()=>void
 }
 
 /**
@@ -75,5 +76,7 @@ export function useAuth(service:AuthService):UseAuthResult {
     setStatus('anonymous')
   }
 
-  return { status, session, error, login, register, requestRecovery, changePassword, logout }
+  const clearError = () => setError(null)
+
+  return { status, session, error, login, register, requestRecovery, changePassword, logout, clearError }
 }

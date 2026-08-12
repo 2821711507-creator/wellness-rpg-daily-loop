@@ -19,7 +19,14 @@ export function AuthScreen({ auth }:{ auth:UseAuthResult }) {
 
   useEffect(() => { if (error) errorRef.current?.focus() }, [error])
 
-  const switchMode = (next:Mode) => { setMode(next); setLocalError(null); setRecoverySent(false) }
+  const switchMode = (next:Mode) => {
+    setMode(next)
+    setLocalError(null)
+    auth.clearError()
+    setRecoverySent(false)
+    setPassword('')
+    setConfirmPassword('')
+  }
 
   const submitLogin = async (event:FormEvent) => {
     event.preventDefault()

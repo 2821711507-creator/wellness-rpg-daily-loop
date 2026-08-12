@@ -16,6 +16,7 @@ function fakeAuth(overrides: Partial<UseAuthResult> = {}): UseAuthResult {
     requestRecovery: vi.fn().mockResolvedValue({ ok:true, value:undefined }),
     changePassword: vi.fn().mockResolvedValue({ ok:true, value:undefined }),
     logout: vi.fn().mockResolvedValue(undefined),
+    clearError: vi.fn(),
     ...overrides,
   }
 }

@@ -18,6 +18,7 @@ function fakeAuth(overrides: Partial<UseAuthResult> = {}): UseAuthResult {
     requestRecovery: vi.fn().mockResolvedValue({ ok:true, value:undefined }),
     changePassword: vi.fn().mockResolvedValue({ ok:true, value:undefined }),
     logout: vi.fn().mockResolvedValue(undefined),
+    clearError: vi.fn(),
     ...overrides,
   }
 }
@@ -30,7 +31,8 @@ function Harness({ initial = {} }: { initial?: Partial<UseAuthResult> }) {
   const login:UseAuthResult['login'] = async (...args) => { const result = await base.login(...args); captureError(result); return result }
   const register:UseAuthResult['register'] = async (...args) => { const result = await base.register(...args); captureError(result); return result }
   const requestRecovery:UseAuthResult['requestRecovery'] = async (...args) => { const result = await base.requestRecovery(...args); captureError(result); return result }
-  return <AuthScreen auth={{ ...base, error, login, register, requestRecovery }}/>
+  const clearError = () => setError(null)
+  return <AuthScreen auth={{ ...base, error, login, register, requestRecovery, clearError }}/>
 }
 
 describe('AuthScreen', () => {
@@ -103,6 +105,37 @@ describe('AuthScreen', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('이미 사용 중인 아이디예요.')
     await waitFor(() => expect(alert).toHaveFocus())
+  })
+
+  it('clears a stale auth-hook error when switching modes', async () => {
+    const user = userEvent.setup()
+    render(<Harness initial={{ register: vi.fn().mockResolvedValue({ ok:false, code:'duplicate-username', message:'이미 사용 중인 아이디예요.' }) }}/>)
+    await user.click(screen.getByRole('button', { name:'회원가입' }))
+
+    await user.type(screen.getByLabelText('아이디'), 'runner_01')
+    await user.type(screen.getByLabelText('비밀번호'), 'password1')
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'password1')
+    await user.click(screen.getByRole('button', { name:'가입하기' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('이미 사용 중인 아이디예요.')
+
+    await user.click(screen.getByRole('button', { name:'로그인으로 돌아가기' }))
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('clears typed passwords when switching modes', async () => {
+    const user = userEvent.setup()
+    render(<AuthScreen auth={fakeAuth()}/>)
+
+    await user.type(screen.getByLabelText('비밀번호'), 'password1')
+    await user.click(screen.getByRole('button', { name:'회원가입' }))
+
+    expect(screen.getByLabelText('비밀번호')).toHaveValue('')
+
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'password2')
+    await user.click(screen.getByRole('button', { name:'로그인으로 돌아가기' }))
+
+    expect(screen.getByLabelText('비밀번호')).toHaveValue('')
   })
 
   it('shows the generic recovery success message and hides the form', async () => {
