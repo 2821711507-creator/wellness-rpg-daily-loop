@@ -5,5 +5,6 @@ import './styles.css'
 import './weeklyPlan.css'
 import './records.css'
 import './avatar.css'
+import './auth.css'
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)
