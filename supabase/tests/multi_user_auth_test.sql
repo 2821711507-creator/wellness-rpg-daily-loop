@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(16);
 
 select has_table('public', 'profiles', 'profiles table exists');
 select has_table('public', 'wellness_states', 'wellness states table exists');
@@ -47,6 +47,37 @@ select is(
 select is_empty(
   $$ select revision from public.save_wellness_state('{"stale":true}'::jsonb, 1) $$,
   'stale revision returns no row'
+);
+
+-- Cross-user write denial on wellness_states. The table grants ordinary
+-- `authenticated` users client-side UPDATE/INSERT privileges (see the migration's
+-- `grant select, insert, update on public.wellness_states to authenticated`) with
+-- no server-side compensating check outside RLS, so `wellness_states_insert_own`'s
+-- and `wellness_states_update_own`'s `user_id = auth.uid()` USING/WITH CHECK clauses
+-- are the only thing standing between one user and writing another user's row.
+-- Traced manually against `supabase/migrations/202608120001_multi_user_auth.sql`
+-- (no Docker available to run `supabase test db` -- see docs/supabase-setup.md);
+-- not executed against a real Postgres instance.
+--
+-- Still acting as runner_one (11111111-1111-1111-1111-111111111111).
+select throws_ok(
+  $$ insert into public.wellness_states (user_id, state) values ('22222222-2222-2222-2222-222222222222', '{"hacked":true}') $$,
+  '42501',
+  'cross-user INSERT into wellness_states (as another user''s user_id) is rejected by RLS'
+);
+
+-- An UPDATE targeting another user's row is not rejected with an error (the row is
+-- simply invisible under `wellness_states_update_own`'s USING clause, exactly like
+-- the self-promotion attempt on profiles above), so it must affect zero rows. RLS
+-- filters `authenticated`'s own view of the row; bypass it as the superuser
+-- (`reset role`) afterward to confirm the owner's actual stored state is untouched.
+update public.wellness_states set state = '{"hacked":true}' where user_id = '22222222-2222-2222-2222-222222222222';
+
+reset role;
+select is(
+  (select state->>'owner' from public.wellness_states where user_id = '22222222-2222-2222-2222-222222222222'),
+  'two',
+  'cross-user UPDATE on wellness_states (as another user''s user_id) affects zero rows -- target state unchanged'
 );
 
 reset role;
