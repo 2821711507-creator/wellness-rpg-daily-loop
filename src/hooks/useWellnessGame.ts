@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { calculateNutritionTarget, type NutritionTarget } from '../domain/nutrition'
-import type { UserProfile } from '../domain/profile'
+import { normalizeProfile, type UserProfile } from '../domain/profile'
 import type { SmoothieItem } from '../domain/smoothie'
 import { completeQuest, rolloverDailyQuests, type GameState } from '../domain/game'
 import { equipItem, normalizeAvatarState, selectGender, selectSkin, unequipItem, type AvatarState, type AvatarGender, type AvatarSelectionSlot, type AvatarSkin } from '../domain/avatar'
@@ -34,7 +34,8 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     const avatar = grantAvatarUnlocks(normalizedAvatar, 0, result.state.game.level).state
     const game = rolloverDailyQuests(result.state.game, today)
     const weeklyPlan = parsedPlan.plan ? reconcileApprovedTrainingWeek(parsedPlan.plan) : undefined
-    return { state:{ ...result.state, game, avatar, weeklyPlan, weightEntries:weights.entries, completionEvents:events.events }, warning:warnings.join(' ') || undefined }
+    const profile = normalizeProfile(result.state.profile)
+    return { state:{ ...result.state, game, avatar, profile, weeklyPlan, weightEntries:weights.entries, completionEvents:events.events }, warning:warnings.join(' ') || undefined }
   })
   const [hookState, setHookState] = useState(() => ({ state:loaded.state, avatarUnlockMessage:'' }))
   const { state, avatarUnlockMessage } = hookState

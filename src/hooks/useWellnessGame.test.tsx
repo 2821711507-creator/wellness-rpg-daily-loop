@@ -52,6 +52,25 @@ describe('useWellnessGame weekly plans', () => {
     expect(result.current.state.game.questDate).toBe('2026-08-11')
   })
 
+  it('defaults a legacy profile with no goal to cut/mild on restore', () => {
+    const legacyFixture = {
+      version:1,
+      profile:{ age:30, heightCm:175, weightKg:80, calculationSex:'male', activityLevel:'light' },
+      nutritionTarget:null,
+      smoothie:[],
+      selectedActivityId:'walk-basic',
+      game:{ level:1, xp:0, coins:0, quests:[], processedEventIds:[] },
+      avatar:{ base:'masculine', unlockedIds:[], equipped:{} },
+      weightEntries:[],
+      completionEvents:[],
+    } as unknown as WellnessState
+    const repository = memoryRepository(legacyFixture)
+
+    const { result } = renderHook(() => useWellnessGame({ repository, now:() => new Date(2026, 7, 11, 7) }))
+
+    expect(result.current.state.profile).toEqual({ age:30, heightCm:175, weightKg:80, calculationSex:'male', activityLevel:'light', goal:'cut', cutIntensity:'mild' })
+  })
+
   it('grants crossed-level cosmetics once and never auto-equips them', () => {
     const seed = renderHook(() => useWellnessGame())
     const repository = memoryRepository({ ...seed.result.current.state, game:{ ...seed.result.current.state.game, xp:90 } })
