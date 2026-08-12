@@ -32,7 +32,6 @@ Admin status is stored in `profiles.role` and additionally verified server-side.
 - `username text unique not null`
 - `role text not null check in ('user', 'admin')`
 - `must_change_password boolean not null default false`
-- `legacy_migrated_at timestamptz null`
 - `created_at`, `updated_at`
 
 ### `wellness_states`
@@ -62,7 +61,7 @@ RLS allows authenticated users to read and update only the `profiles` and `welln
 
 `CloudWellnessRepository` implements asynchronous load and save operations for the current user. The app exposes explicit authentication and synchronization states instead of assuming a synchronous local repository. Remote state is authoritative after successful login.
 
-On a newly registered account with no remote state, the migration reads the legacy `wellness-rpg:v1` payload, validates it, writes it to the new user's row, marks `legacy_migrated_at`, and then removes the legacy key only after the cloud write succeeds. Retrying is idempotent. Logging into an existing account never imports unrelated browser data.
+On a newly registered account with no remote state, the migration reads the legacy `wellness-rpg:v1` payload, validates it, writes it to the new user's row via a revision-checked insert (`expectedRevision` 0), and then removes the legacy key only after the cloud write succeeds. Retrying is idempotent. Logging into an existing account never imports unrelated browser data.
 
 During a network outage, accepted local changes remain in memory and in a user-scoped pending cache. The UI shows `동기화 대기 중` and retries when connectivity returns. Saves carry a revision; a revision conflict fetches the latest cloud state and asks the user to reload instead of silently overwriting another device's newer state. Simultaneous multi-device editing and automatic field-level merge are outside this first release.
 

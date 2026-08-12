@@ -30,7 +30,6 @@ create table public.profiles (
   username text unique not null check (username ~ '^[a-z0-9_]{4,24}$'),
   role text not null default 'user' check (role in ('user','admin')),
   must_change_password boolean not null default false,
-  legacy_migrated_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
