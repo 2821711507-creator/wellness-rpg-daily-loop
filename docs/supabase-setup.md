@@ -55,17 +55,28 @@ supabase functions deploy admin-reset-password
 
 The Edge Functions authenticate with the **service-role key**, which bypasses RLS
 and must never reach a browser. It is never read from a `VITE_*` variable and never
-appears in `src/`, so it cannot end up in the client bundle. Set it (and any other
-server-only secret) with:
+appears in `src/`, so it cannot end up in the client bundle.
 
-```bash
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service-role-key-from-dashboard>
-```
+**Do not run `supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...`** -- the Supabase
+CLI rejects setting any secret with the `SUPABASE_` prefix, because that prefix is
+reserved by the platform. Both `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_URL` are
+injected automatically into every deployed function; neither needs to be (or can
+be) set manually with `supabase secrets set`.
 
-`SUPABASE_URL` is provided automatically to deployed functions by the Supabase
-platform; it does not need to be set manually.
+## 5. CORS
 
-## 5. Configure the client (`.env.local`)
+`supabase.functions.invoke()` from a real browser sends non-simple headers
+(`Authorization`, `apikey`, `x-client-info`), which triggers a CORS preflight
+`OPTIONS` request before the actual `POST`. All four Edge Functions already answer
+this correctly -- see `supabase/functions/_shared/cors.ts`, which every handler
+short-circuits into for an `OPTIONS` request, and which `_shared/auth.ts`'s
+`jsonResponse` spreads onto every other response (success and error alike). There
+is nothing to configure here; this section exists so a deploying admin recognizes
+the failure mode (a browser console CORS error on the very first `invoke()` call
+against a freshly deployed function) instead of assuming the deployment itself is
+broken.
+
+## 6. Configure the client (`.env.local`)
 
 Copy `.env.example` to `.env.local` (already git-ignored, see `.gitignore`'s
 `.env*` pattern) and fill in the **public** URL and anon key only -- never the
@@ -84,7 +95,7 @@ VITE_SUPABASE_ANON_KEY=your-public-anon-key
 (`Supabase 환경 변수가 필요합니다.`, from `src/auth/supabaseClient.ts`) if either
 variable is missing.
 
-## 6. Promote the first administrator
+## 7. Promote the first administrator
 
 There is no public "become admin" flow -- `public.profiles` has no client-facing
 UPDATE policy at all (see the design note at the top of the migration file), so
