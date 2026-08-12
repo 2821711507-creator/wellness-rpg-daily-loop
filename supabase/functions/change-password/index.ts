@@ -8,6 +8,7 @@
 // password value and never logs the request body.
 
 import { authenticateCaller, failResponse, okResponse } from '../_shared/auth.ts'
+import { corsPreflightResponse } from '../_shared/cors.ts'
 
 /** The minimal Supabase Admin client surface this function depends on. A real
  * `SupabaseClient` created with the service-role key satisfies it. */
@@ -35,6 +36,8 @@ export interface ChangePasswordDeps {
 const MIN_PASSWORD_LENGTH = 8
 
 export async function handleChangePassword(req: Request, deps: ChangePasswordDeps): Promise<Response> {
+  if (req.method === 'OPTIONS') return corsPreflightResponse()
+
   const { adminClient } = deps
 
   const callerId = await authenticateCaller(adminClient, req)

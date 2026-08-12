@@ -11,6 +11,7 @@ import { handleRegisterUsername, type RegisterAdminClient } from '../register-us
 import { handleRequestPasswordRecovery, type RecoveryAdminClient } from '../request-password-recovery/index.ts'
 import { handleAdminResetPassword, type AdminResetAdminClient } from '../admin-reset-password/index.ts'
 import { handleChangePassword, type ChangePasswordAdminClient } from '../change-password/index.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
 // ---------------------------------------------------------------------------
 // Fake Supabase Admin client -- an in-memory stand-in covering every operation
@@ -460,3 +461,66 @@ Deno.test('change-password: rejects an unauthenticated caller', async () => {
   assertEquals(result.body.ok, false)
   assertEquals(admin.updateUserByIdCalls.length, 0)
 })
+
+// ---------------------------------------------------------------------------
+// CORS -- a real browser call via `supabase.functions.invoke()` sends non-simple
+// headers (Authorization, apikey, x-client-info), which triggers a preflight
+// `OPTIONS` request. Every handler must answer it directly (before touching auth,
+// body parsing, or the admin client) with a 2xx and the right `Access-Control-*`
+// headers, and every actual response (success or failure) must carry those headers
+// too so the browser is allowed to read the body cross-origin.
+// ---------------------------------------------------------------------------
+
+const HANDLERS_UNDER_TEST: Array<{
+  name: string
+  handler: (req: Request, deps: { adminClient: FakeAdminClient }) => Promise<Response>
+}> = [
+  { name: 'register-username', handler: handleRegisterUsername },
+  { name: 'request-password-recovery', handler: handleRequestPasswordRecovery },
+  { name: 'admin-reset-password', handler: handleAdminResetPassword },
+  { name: 'change-password', handler: handleChangePassword },
+]
+
+function assertHasCorsHeaders(res: Response) {
+  for (const [header, value] of Object.entries(corsHeaders)) {
+    assertEquals(res.headers.get(header), value, `expected ${header} to be present on the response`)
+  }
+}
+
+for (const { name, handler } of HANDLERS_UNDER_TEST) {
+  Deno.test(`${name}: OPTIONS preflight returns 2xx with CORS headers without touching the admin client`, async () => {
+    const admin = new FakeAdminClient()
+    const req = new Request('http://localhost/fn', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://example.com',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'authorization, x-client-info, apikey, content-type',
+      },
+    })
+
+    const res = await handler(req, { adminClient: admin })
+
+    assert(res.status >= 200 && res.status < 300, `expected a 2xx status, got ${res.status}`)
+    assertHasCorsHeaders(res)
+    assertEquals(admin.updateUserByIdCalls.length, 0)
+    assertEquals(admin.rowsIn('profiles').length, 0)
+  })
+
+  Deno.test(`${name}: a normal (non-OPTIONS) response also carries CORS headers`, async () => {
+    const admin = new FakeAdminClient()
+    // An empty/garbage body is enough here -- every handler's very first response
+    // (a 400 for an unreadable body, or a 401 for a missing bearer token) must
+    // already carry the CORS headers, since `jsonResponse` is the single choke
+    // point every response envelope goes through.
+    const req = new Request('http://localhost/fn', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+
+    const res = await handler(req, { adminClient: admin })
+
+    assertHasCorsHeaders(res)
+  })
+}

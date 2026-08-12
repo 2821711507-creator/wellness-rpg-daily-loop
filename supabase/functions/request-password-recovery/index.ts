@@ -9,6 +9,7 @@
 // the response cannot be used to enumerate registered usernames.
 
 import { failResponse, okResponse, validateUsername } from '../_shared/auth.ts'
+import { corsPreflightResponse } from '../_shared/cors.ts'
 
 interface MaybeSingleResult {
   data: Record<string, unknown> | null
@@ -39,6 +40,8 @@ function acceptedResponse(): Response {
 }
 
 export async function handleRequestPasswordRecovery(req: Request, deps: RecoveryDeps): Promise<Response> {
+  if (req.method === 'OPTIONS') return corsPreflightResponse()
+
   let body: { username?: unknown }
   try {
     body = await req.json()

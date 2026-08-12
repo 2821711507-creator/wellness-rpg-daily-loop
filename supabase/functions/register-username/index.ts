@@ -8,6 +8,7 @@
 // (compensating transaction). Never logs the request body or password.
 
 import { failResponse, okResponse, toInternalEmail, validateUsername } from '../_shared/auth.ts'
+import { corsPreflightResponse } from '../_shared/cors.ts'
 
 interface AdminError {
   message: string
@@ -49,6 +50,8 @@ function isDuplicateUsernameError(error: AdminError | null): boolean {
 }
 
 export async function handleRegisterUsername(req: Request, deps: RegisterDeps): Promise<Response> {
+  if (req.method === 'OPTIONS') return corsPreflightResponse()
+
   let body: { username?: unknown; password?: unknown }
   try {
     body = await req.json()

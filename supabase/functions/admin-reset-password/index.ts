@@ -9,6 +9,7 @@
 // in this response body -- it is never persisted or logged.
 
 import { authenticateCaller, failResponse, generateTemporaryPassword, loadCallerRole, okResponse } from '../_shared/auth.ts'
+import { corsPreflightResponse } from '../_shared/cors.ts'
 
 interface MaybeSingleResult {
   data: Record<string, unknown> | null
@@ -47,6 +48,8 @@ export interface AdminResetDeps {
 }
 
 export async function handleAdminResetPassword(req: Request, deps: AdminResetDeps): Promise<Response> {
+  if (req.method === 'OPTIONS') return corsPreflightResponse()
+
   const { adminClient } = deps
 
   const callerId = await authenticateCaller(adminClient, req)

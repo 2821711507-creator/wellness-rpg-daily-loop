@@ -4,6 +4,8 @@
 // there already, because a Supabase Edge Function deployment only uploads
 // `supabase/functions/**`, so anything reachable from these handlers must live here.
 
+import { corsHeaders } from './cors.ts'
+
 /** Mirrors `AuthErrorCode` from `src/auth/authTypes.ts`. Duplicated on purpose (see
  * above) -- keep the two in sync by hand if the set of codes ever changes. */
 export type AuthErrorCode =
@@ -32,8 +34,14 @@ export function toInternalEmail(username: string): string {
   return `${username}@users.internal`
 }
 
+/** Every response (success and error alike) goes through here, so every response
+ * -- including a preflight-adjacent 400/401/403/404/409/500 -- carries the CORS
+ * headers a browser needs to read the body cross-origin (see `_shared/cors.ts`). */
 export function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders },
+  })
 }
 
 /** Builds the `{ ok:true, ... }` success envelope every handler returns. */
