@@ -337,7 +337,12 @@ describe('useWellnessGame weekly plans', () => {
       expect(result.current.state.game.coins).toBe(0)
     })
 
-    it('calls onStateChange from the save effect on mount and after mutations, without touching the repository', () => {
+    it('does not call onStateChange merely from hydrating a supplied initialState, but does call it once after a real state-changing action, without touching the repository', () => {
+      // Regression test for: every app open unconditionally wrote to the cloud (via the
+      // save effect firing on the very first render after load), which bumped the remote
+      // revision on mere hydration and produced a spurious conflict on a second device that
+      // made no conflicting edit at all. The save effect must only fire in response to an
+      // actual user-driven state change, never for the initial mount/hydration render.
       const initialState = {
         version:1,
         profile:null,
@@ -357,14 +362,16 @@ describe('useWellnessGame weekly plans', () => {
 
       const { result } = renderHook(() => useWellnessGame({ initialState, onStateChange, repository, now:() => new Date(2026, 7, 11, 7) }))
 
-      expect(onStateChange).toHaveBeenCalledTimes(1)
-      expect(onStateChange).toHaveBeenLastCalledWith(result.current.state)
+      expect(onStateChange).not.toHaveBeenCalled()
 
       act(() => result.current.setSmoothie([{ ingredientId:'banana', grams:50 }]))
 
-      expect(onStateChange).toHaveBeenCalledTimes(2)
+      expect(onStateChange).toHaveBeenCalledTimes(1)
       expect(onStateChange).toHaveBeenLastCalledWith(expect.objectContaining({ smoothie:[{ ingredientId:'banana', grams:50 }] }))
       expect(localStorage.getItem('wellness-rpg:v1')).toBeNull()
+
+      act(() => result.current.complete('recovery'))
+      expect(onStateChange).toHaveBeenCalledTimes(2)
     })
   })
 })

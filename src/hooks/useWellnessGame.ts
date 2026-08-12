@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { calculateNutritionTarget, type NutritionTarget } from '../domain/nutrition'
 import { normalizeProfile, type UserProfile } from '../domain/profile'
 import type { SmoothieItem } from '../domain/smoothie'
@@ -57,8 +57,20 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
   const { state, avatarUnlockMessage } = hookState
   const setState = (update: (current: WellnessState) => WellnessState) => setHookState(current => ({ ...current, state:update(current.state) }))
   const [mutationMessage, setMutationMessage] = useState('')
+  // Guards the cloud-managed save effect against firing on the very first render after
+  // hydration. Without this, every app open unconditionally wrote the freshly-hydrated
+  // (but otherwise unchanged) state back to the cloud, bumping the remote revision purely
+  // from loading -- which produced a spurious conflict on a second, already-open device
+  // that made no conflicting edit at all. A genuine first-ever save for a brand-new account
+  // still happens naturally: it is driven by the user's first real action (e.g. onboarding),
+  // not by this mount effect.
+  const hydratedRef = useRef(true)
   useEffect(() => {
-    if (cloudManaged) { options.onStateChange?.(state); return }
+    if (cloudManaged) {
+      if (hydratedRef.current) { hydratedRef.current = false; return }
+      options.onStateChange?.(state)
+      return
+    }
     try { activeRepository.save(state) } catch { /* keep memory state */ }
   }, [activeRepository, state, cloudManaged, options.onStateChange])
   const applyMutation = (result: PlanMutationResult) => {
