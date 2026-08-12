@@ -177,6 +177,53 @@ describe('App', () => {
     expect(services.cloudRepository.save).toHaveBeenCalledTimes(2)
   })
 
+  it('completes the full register -> edit -> logout -> login journey and sees the edit persisted, with no spurious conflict from logging back in', async () => {
+    const services = fakeServices({ session:null })
+    const user = userEvent.setup()
+    render(<App services={services}/>)
+
+    await user.click(await screen.findByRole('button', { name:'회원가입' }))
+    await user.type(screen.getByLabelText('아이디'), 'journey_user')
+    await user.type(screen.getByLabelText('비밀번호'), 'password1')
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'password1')
+    await user.click(screen.getByRole('button', { name:'가입하기' }))
+
+    // Onboarding's defaults are already valid -- submit as-is to reach the main app.
+    await user.click(await screen.findByRole('button', { name:'시작하기' }))
+    await screen.findByRole('heading', { name:'오늘' })
+
+    // A real, user-driven edit: record today's weight.
+    await user.click(screen.getAllByRole('button', { name:'기록' })[0])
+    await user.type(screen.getByRole('spinbutton', { name:'오늘 체중' }), '68.5')
+    await user.click(screen.getByRole('button', { name:'체중 저장' }))
+    expect((await screen.findAllByText('오늘 체중을 저장했어요.')).length).toBeGreaterThan(0)
+
+    const userId = 'user-journey_user'
+    await waitFor(() => expect(services.cloudRepository.store[userId]?.state.weightEntries).toEqual([
+      expect.objectContaining({ weightKg:68.5 }),
+    ]))
+    // No spurious conflict from registering + onboarding + saving in this same session.
+    expect(screen.queryByRole('button', { name:'새로고침' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name:'오늘' }))
+    await screen.findByRole('heading', { name:'오늘' })
+    await user.click(screen.getByRole('button', { name:'프로필' }))
+    await user.click(screen.getByRole('menuitem', { name:'로그아웃' }))
+    await screen.findByRole('heading', { name:'로그인' })
+
+    await user.type(screen.getByLabelText('아이디'), 'journey_user')
+    await user.type(screen.getByLabelText('비밀번호'), 'password1')
+    await user.click(screen.getByRole('button', { name:'로그인' }))
+
+    await screen.findByRole('heading', { name:'오늘' })
+    await user.click(screen.getAllByRole('button', { name:'기록' })[0])
+
+    expect(await screen.findByRole('spinbutton', { name:'오늘 체중' })).toHaveValue(68.5)
+    // Fix 4 regression check: re-hydrating the just-saved state on this second login must
+    // not itself fire an unconditional save that could collide with anything.
+    expect(screen.queryByRole('button', { name:'새로고침' })).not.toBeInTheDocument()
+  })
+
   it('blocks a silent overwrite on conflict and reloads the latest remote state on demand', async () => {
     const session: AuthSession = { accessToken:'a', user:userFixture('runner_05') }
     const services = fakeServices({ session, remoteState:buildState(1650) })
