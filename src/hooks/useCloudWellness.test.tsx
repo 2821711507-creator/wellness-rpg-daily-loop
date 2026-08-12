@@ -149,4 +149,41 @@ describe('useCloudWellness', () => {
     await waitFor(() => expect(result.current.initialState).toEqual(remoteState))
     expect(result.current.syncState).toBe('saved')
   })
+
+  it('goes to error (not waiting) when online and the save fails for a non-network reason', async () => {
+    const repository = fakeRepository({ load: { state: defaultWellnessState, revision: 1 }, save: { ok: false, reason: 'error' } })
+    const storage = fakeStorage()
+    Object.defineProperty(window.navigator, 'onLine', { value: true, configurable: true })
+    const { result } = renderHook(() => useCloudWellness({ userId: 'u1', repository, storage }))
+    await waitFor(() => expect(result.current.initialState).toBeDefined())
+
+    const changed = { ...defaultWellnessState, game: { ...defaultWellnessState.game, coins: 13 } }
+    act(() => result.current.onStateChange(changed))
+    await wait(350)
+
+    await waitFor(() => expect(result.current.syncState).toBe('error'))
+    expect(storage.getItem('wellness-rpg:pending:u1')).toEqual(JSON.stringify(changed))
+  })
+
+  it('retry() re-attempts the save after an error and transitions to saved on success', async () => {
+    const repository = fakeRepository({ load: { state: defaultWellnessState, revision: 1 }, save: { ok: false, reason: 'error' } })
+    const storage = fakeStorage()
+    Object.defineProperty(window.navigator, 'onLine', { value: true, configurable: true })
+    const { result } = renderHook(() => useCloudWellness({ userId: 'u1', repository, storage }))
+    await waitFor(() => expect(result.current.initialState).toBeDefined())
+
+    const changed = { ...defaultWellnessState, game: { ...defaultWellnessState.game, coins: 21 } }
+    act(() => result.current.onStateChange(changed))
+    await wait(350)
+    await waitFor(() => expect(result.current.syncState).toBe('error'))
+
+    repository.save.mockClear()
+    repository.save.mockResolvedValue({ ok: true, revision: 2 })
+    await act(async () => { result.current.retry() })
+
+    await waitFor(() => expect(result.current.syncState).toBe('saved'))
+    expect(repository.save).toHaveBeenCalledTimes(1)
+    expect(repository.save).toHaveBeenCalledWith('u1', changed, 1)
+    expect(storage.getItem('wellness-rpg:pending:u1')).toBeNull()
+  })
 })
