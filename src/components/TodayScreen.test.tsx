@@ -18,6 +18,7 @@ function renderTodayScreen(account: TodayAccount) {
       onOpenPlan={noop}
       onOpenRecords={noop}
       onOpenAvatar={noop}
+      onOpenMore={noop}
       account={account}
     />,
   )
@@ -104,6 +105,7 @@ describe('TodayScreen AccountMenu', () => {
           onOpenPlan={noop}
           onOpenRecords={noop}
           onOpenAvatar={noop}
+          onOpenMore={noop}
           account={account}
         />
       )
@@ -122,5 +124,28 @@ describe('TodayScreen AccountMenu', () => {
     // The form stays open on failure, unlike the success case.
     expect(screen.getByLabelText('새 비밀번호')).toBeInTheDocument()
     expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
+})
+
+describe('더보기', () => {
+  it('calls onOpenMore when the button is clicked', async () => {
+    const user = userEvent.setup()
+    const onOpenMore = vi.fn()
+    render(
+      <TodayScreen
+        state={defaultWellnessState}
+        setSmoothie={noop}
+        setActivity={noop}
+        complete={noop}
+        onOpenPlan={noop}
+        onOpenRecords={noop}
+        onOpenAvatar={noop}
+        onOpenMore={onOpenMore}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '더보기' }))
+
+    expect(onOpenMore).toHaveBeenCalled()
   })
 })

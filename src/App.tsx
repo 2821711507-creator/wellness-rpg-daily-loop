@@ -13,12 +13,15 @@ import { useCloudWellness, type SyncState } from './hooks/useCloudWellness'
 import { AuthScreen } from './components/AuthScreen'
 import { ForcePasswordChangeScreen } from './components/ForcePasswordChangeScreen'
 import { AdminRecoveryScreen } from './components/AdminRecoveryScreen'
-import type { AuthService } from './auth/authTypes'
+import { AdminFeedbackScreen } from './components/AdminFeedbackScreen'
+import { MoreScreen } from './components/MoreScreen'
+import type { AuthResult, AuthService } from './auth/authTypes'
 import { createSupabaseAuthService, type SupabaseAuthClient } from './auth/supabaseAuthService'
 import { createCloudWellnessRepository, type CloudWellnessClient, type CloudWellnessRepository } from './cloud/cloudWellnessRepository'
 import { createAdminRecoveryService, type AdminRecoveryClient, type AdminRecoveryService } from './admin/adminRecoveryService'
+import { createFeedbackService, type FeedbackClient, type FeedbackService } from './feedback/feedbackService'
 
-type View = 'today'|'plan'|'records'|'avatar'
+type View = 'today'|'plan'|'records'|'avatar'|'more'
 
 /** The services `App` needs. Real Supabase-backed implementations are only built lazily (see `createDefaultServices`) so importing this module never reads `VITE_SUPABASE_*` env vars -- tests always inject fakes instead.
  * `adminRecoveryService` is optional: every pre-Task-8 caller (and every existing test's `fakeServices()`) omits it, and the admin route is simply unreachable without it -- see `AuthGate`. */
@@ -26,6 +29,7 @@ export interface AppServices {
   authService: AuthService
   cloudRepository: CloudWellnessRepository<WellnessState>
   adminRecoveryService?: AdminRecoveryService
+  feedbackService?: FeedbackService
 }
 
 async function createDefaultServices(): Promise<AppServices> {
@@ -37,6 +41,7 @@ async function createDefaultServices(): Promise<AppServices> {
     authService: createSupabaseAuthService(supabase as unknown as SupabaseAuthClient),
     cloudRepository: createCloudWellnessRepository(supabase as unknown as CloudWellnessClient),
     adminRecoveryService: createAdminRecoveryService(supabase as unknown as AdminRecoveryClient),
+    feedbackService: createFeedbackService(supabase as unknown as FeedbackClient),
   }
 }
 
@@ -58,7 +63,7 @@ const LoadErrorScreen = ({ onRetry }: { onRetry: () => void }) => (
  * views over a `useWellnessGame` instance. Driven purely by local storage when `initialState`/`onStateChange`
  * are omitted (as in every pre-Task-7 test), or by an authenticated user's cloud state when supplied by `App`.
  */
-export function WellnessApp({ now = () => new Date(), initialState, onStateChange, account, syncState, onReloadRemote, onRetrySync }: { now?: () => Date; initialState?: WellnessState; onStateChange?: (state: WellnessState) => void; account?: TodayAccount; syncState?: SyncState; onReloadRemote?: () => void; onRetrySync?: () => void }) {
+export function WellnessApp({ now = () => new Date(), initialState, onStateChange, account, syncState, onReloadRemote, onRetrySync, onSubmitFeedback }: { now?: () => Date; initialState?: WellnessState; onStateChange?: (state: WellnessState) => void; account?: TodayAccount; syncState?: SyncState; onReloadRemote?: () => void; onRetrySync?: () => void; onSubmitFeedback?: (message: string) => Promise<AuthResult<void>> }) {
   const game = useWellnessGame({ now, initialState, onStateChange })
   const [view, setView] = useState<View>('today')
   const customizeButtonRef = useRef<HTMLButtonElement>(null)
@@ -75,15 +80,17 @@ export function WellnessApp({ now = () => new Date(), initialState, onStateChang
   const content = !game.state.profile
     ? <Onboarding onComplete={game.onboard}/>
     : view === 'today'
-      ? <TodayScreen state={game.state} setSmoothie={game.setSmoothie} setActivity={game.setActivity} complete={game.complete} onOpenPlan={() => setView('plan')} onOpenRecords={() => setView('records')} onOpenAvatar={() => setView('avatar')} customizeButtonRef={customizeButtonRef} now={now} account={account}/>
+      ? <TodayScreen state={game.state} setSmoothie={game.setSmoothie} setActivity={game.setActivity} complete={game.complete} onOpenPlan={() => setView('plan')} onOpenRecords={() => setView('records')} onOpenAvatar={() => setView('avatar')} onOpenMore={() => setView('more')} customizeButtonRef={customizeButtonRef} now={now} account={account}/>
       : view === 'avatar'
         ? <div className="app-shell"><header className="topbar"><div className="brand-mark">W</div><div><p className="eyebrow">나만의 모험가</p><h1>캐릭터 꾸미기</h1></div></header><AvatarCustomizer state={game.state.avatar} gameLevel={game.state.game.level} onGenderChange={game.setAvatarGender} onSkinChange={game.setAvatarSkin} onEquip={game.equipAvatarItem} onUnequip={game.unequipAvatarItem} onClose={closeAvatar}/></div>
-        : <div className="app-shell">
+        : view === 'more'
+          ? <MoreScreen onClose={() => setView('today')} onSubmitFeedback={onSubmitFeedback}/>
+          : <div className="app-shell">
           <header className="topbar"><div className="brand-mark">W</div><div><p className="eyebrow">{records ? '나의 변화 기록' : '나의 7일 루틴'}</p><h1>{records ? '기록' : '계획'}</h1></div></header>
           {records
             ? <RecordsScreen today={toLocalDateKey(now())} entries={game.state.weightEntries ?? []} plan={game.state.weeklyPlan ?? null} events={game.state.completionEvents ?? []} onSaveWeight={game.saveWeight} onDeleteWeight={game.deleteWeight}/>
             : <WeeklyPlanScreen plan={game.state.weeklyPlan ?? null} smoothieItems={game.state.smoothie} onGenerate={game.generatePlan} onMoveMeal={game.moveMeal} onMoveActivity={game.moveActivity} onReplaceActivity={game.replaceActivity} onRegenerate={game.clearPlan}/>}
-          <nav className="bottom-nav" aria-label="주요 메뉴"><button aria-label="오늘" onClick={() => setView('today')}><span>●</span>오늘</button><button className={!records ? 'active' : ''} aria-current={!records ? 'page' : undefined} onClick={() => setView('plan')}><CalendarDays/>계획</button><button className={records ? 'active' : ''} aria-current={records ? 'page' : undefined} onClick={() => setView('records')}><ScrollText/>기록</button><button><ChevronRight/>더보기</button></nav>
+          <nav className="bottom-nav" aria-label="주요 메뉴"><button aria-label="오늘" onClick={() => setView('today')}><span>●</span>오늘</button><button className={!records ? 'active' : ''} aria-current={!records ? 'page' : undefined} onClick={() => setView('plan')}><CalendarDays/>계획</button><button className={records ? 'active' : ''} aria-current={records ? 'page' : undefined} onClick={() => setView('records')}><ScrollText/>기록</button><button onClick={() => setView('more')}><ChevronRight/>더보기</button></nav>
         </div>
   const visibleNotice = [game.mutationMessage, game.warning].filter(Boolean).join(' ')
 
@@ -97,7 +104,7 @@ export function WellnessApp({ now = () => new Date(), initialState, onStateChang
 }
 
 /** Loads the authenticated user's own cloud state (importing legacy local data exactly once, on first registration) and drives `WellnessApp` from it. Keyed by `userId` at the call site so switching users always remounts fresh. */
-function CloudConnectedApp({ userId, username, cloudRepository, justRegistered, now, onChangePassword, onLogout, authError, clearAuthError }: { userId: string; username: string; cloudRepository: CloudWellnessRepository<WellnessState>; justRegistered: boolean; now: () => Date; onChangePassword: UseAuthResult['changePassword']; onLogout: UseAuthResult['logout']; authError: string | null; clearAuthError: () => void }) {
+function CloudConnectedApp({ userId, username, cloudRepository, feedbackService, justRegistered, now, onChangePassword, onLogout, authError, clearAuthError }: { userId: string; username: string; cloudRepository: CloudWellnessRepository<WellnessState>; feedbackService?: FeedbackService; justRegistered: boolean; now: () => Date; onChangePassword: UseAuthResult['changePassword']; onLogout: UseAuthResult['logout']; authError: string | null; clearAuthError: () => void }) {
   const cloud = useCloudWellness({ userId, repository: cloudRepository, justRegistered, now })
   if (cloud.initialState === undefined) {
     return cloud.syncState === 'error' ? <LoadErrorScreen onRetry={cloud.reloadRemote}/> : <LoadingScreen/>
@@ -110,6 +117,7 @@ function CloudConnectedApp({ userId, username, cloudRepository, justRegistered, 
     onReloadRemote={cloud.reloadRemote}
     onRetrySync={cloud.retry}
     account={{ username, onChangePassword, onLogout, error: authError, clearError: clearAuthError }}
+    onSubmitFeedback={feedbackService ? message => feedbackService.submit(userId, message) : undefined}
   />
 }
 
@@ -118,6 +126,7 @@ function AuthGate({ now, services }: { now: () => Date; services: AppServices })
   const auth = useAuth(services.authService)
   const [authEvent, setAuthEvent] = useState<{ userId: string; justRegistered: boolean } | null>(null)
   const [showAdminRecovery, setShowAdminRecovery] = useState(false)
+  const [showAdminFeedback, setShowAdminFeedback] = useState(false)
 
   const wrappedAuth: UseAuthResult = {
     ...auth,
@@ -143,20 +152,26 @@ function AuthGate({ now, services }: { now: () => Date; services: AppServices })
   // matter (see `AppServices`), but `AdminRecoveryScreen` re-checks `session.user.role` itself
   // regardless of how it was reached, so this route is never merely hidden-but-reachable.
   const canOpenAdminRecovery = session.user.role === 'admin' && services.adminRecoveryService
+  const canOpenAdminFeedback = session.user.role === 'admin' && services.feedbackService
 
   if (canOpenAdminRecovery && showAdminRecovery) {
     return <AdminRecoveryScreen session={session} service={services.adminRecoveryService!} onClose={() => setShowAdminRecovery(false)}/>
   }
+  if (canOpenAdminFeedback && showAdminFeedback) {
+    return <AdminFeedbackScreen session={session} service={services.feedbackService!} onClose={() => setShowAdminFeedback(false)}/>
+  }
 
   return <ForcePasswordChangeScreen auth={wrappedAuth}>
-    {canOpenAdminRecovery && <div className="admin-entry-bar">
-      <button type="button" className="admin-entry-button" onClick={() => setShowAdminRecovery(true)}>관리자: 비밀번호 복구 관리</button>
+    {(canOpenAdminRecovery || canOpenAdminFeedback) && <div className="admin-entry-bar">
+      {canOpenAdminRecovery && <button type="button" className="admin-entry-button" onClick={() => setShowAdminRecovery(true)}>관리자: 비밀번호 복구 관리</button>}
+      {canOpenAdminFeedback && <button type="button" className="admin-entry-button" onClick={() => setShowAdminFeedback(true)}>관리자: 피드백 보기</button>}
     </div>}
     <CloudConnectedApp
       key={session.user.id}
       userId={session.user.id}
       username={session.user.username}
       cloudRepository={services.cloudRepository}
+      feedbackService={services.feedbackService}
       justRegistered={justRegistered}
       now={now}
       onChangePassword={wrappedAuth.changePassword}

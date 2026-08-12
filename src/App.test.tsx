@@ -6,6 +6,7 @@ import type { AuthService, AuthSession, AuthUser } from './auth/authTypes'
 import type { CloudSaveResult, CloudWellnessRepository } from './cloud/cloudWellnessRepository'
 import { defaultWellnessState, type WellnessState } from './hooks/useWellnessGame'
 import type { UserProfile } from './domain/profile'
+import type { FeedbackService } from './feedback/feedbackService'
 
 const LEGACY_KEY = 'wellness-rpg:v1'
 
@@ -19,8 +20,18 @@ function buildState(targetKcal:number): WellnessState {
   }
 }
 
-function userFixture(username:string): AuthUser {
-  return { id:`user-${username}`, username, role:'user', mustChangePassword:false }
+function userFixture(username:string, role:'user'|'admin' = 'user'): AuthUser {
+  return { id:`user-${username}`, username, role, mustChangePassword:false }
+}
+
+function createFakeFeedbackService(store: Array<{ id:string; username:string; message:string; createdAt:string }> = []): FeedbackService {
+  return {
+    submit: async (userId, message) => {
+      store.push({ id:`fb-${store.length + 1}`, username:userId.replace(/^user-/, ''), message, createdAt:'2026-08-12T00:00:00.000Z' })
+      return { ok:true, value:undefined }
+    },
+    listAll: async () => ({ ok:true, value:[...store] }),
+  }
 }
 
 function createFakeAuthService(users: Map<string, { password:string; user:AuthUser }> = new Map(), initialSession: AuthSession|null = null): AuthService {
@@ -68,12 +79,13 @@ function createFakeCloudRepository(seed: Record<string, { state:WellnessState; r
   return repository
 }
 
-function fakeServices({ session = null, remoteState, users = new Map() }: { session?:AuthSession|null; remoteState?:WellnessState; users?:Map<string,{password:string;user:AuthUser}> } = {}): AppServices & { cloudRepository: ReturnType<typeof createFakeCloudRepository> } {
+function fakeServices({ session = null, remoteState, users = new Map(), feedbackStore = [] }: { session?:AuthSession|null; remoteState?:WellnessState; users?:Map<string,{password:string;user:AuthUser}>; feedbackStore?:Array<{ id:string; username:string; message:string; createdAt:string }> } = {}): AppServices & { cloudRepository: ReturnType<typeof createFakeCloudRepository> } {
   const authService = createFakeAuthService(users, session)
   const seed: Record<string, { state:WellnessState; revision:number }> = {}
   if (session && remoteState) seed[session.user.id] = { state:remoteState, revision:1 }
   const cloudRepository = createFakeCloudRepository(seed)
-  return { authService, cloudRepository }
+  const feedbackService = createFakeFeedbackService(feedbackStore)
+  return { authService, cloudRepository, feedbackService }
 }
 
 const wait = (ms:number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -244,5 +256,39 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name:'새로고침' }))
     expect(await screen.findByText(/목표 1999 kcal/)).toBeInTheDocument()
+  })
+
+  it('lets a logged-in user open 더보기 from 오늘 and submit feedback', async () => {
+    const session: AuthSession = { accessToken:'a', user:userFixture('runner_06') }
+    const feedbackStore: Array<{ id:string; username:string; message:string; createdAt:string }> = []
+    const services = fakeServices({ session, remoteState:buildState(1650), feedbackStore })
+    const user = userEvent.setup()
+    render(<App services={services}/>)
+    await screen.findByRole('heading', { name:'오늘' })
+
+    await user.click(screen.getByRole('button', { name:'더보기' }))
+    expect(await screen.findByRole('heading', { name:'더보기' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('의견 보내기'), '운동 종류를 늘려주세요')
+    await user.click(screen.getByRole('button', { name:'보내기' }))
+
+    expect(await screen.findByText('의견을 보냈어요. 고마워요!')).toBeInTheDocument()
+    expect(feedbackStore).toEqual([expect.objectContaining({ username:'runner_06', message:'운동 종류를 늘려주세요' })])
+
+    await user.click(screen.getByRole('button', { name:'돌아가기' }))
+    expect(await screen.findByRole('heading', { name:'오늘' })).toBeInTheDocument()
+  })
+
+  it('lets an administrator open the feedback screen and see submitted feedback', async () => {
+    const session: AuthSession = { accessToken:'a', user:userFixture('wellness_admin', 'admin') }
+    const feedbackStore = [{ id:'fb-1', username:'runner_07', message:'캐릭터 옷이 예뻐요', createdAt:'2026-08-12T00:00:00.000Z' }]
+    const services = fakeServices({ session, remoteState:buildState(1650), feedbackStore })
+    const user = userEvent.setup()
+    render(<App services={services}/>)
+    await screen.findByRole('heading', { name:'오늘' })
+
+    await user.click(screen.getByRole('button', { name:'관리자: 피드백 보기' }))
+
+    expect(await screen.findByText('캐릭터 옷이 예뻐요')).toBeInTheDocument()
+    expect(screen.getByText('runner_07')).toBeInTheDocument()
   })
 })
