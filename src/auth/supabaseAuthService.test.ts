@@ -294,5 +294,54 @@ describe('createSupabaseAuthService', () => {
       unsubscribeFromService()
       expect(unsubscribe).toHaveBeenCalledTimes(1)
     })
+
+    it('never issues a new Supabase call synchronously inside the onAuthStateChange callback (documented deadlock hazard)', async () => {
+      const { fake, emit } = createFakeClient()
+      const service = createSupabaseAuthService(fake)
+      const listener = vi.fn()
+      service.onSessionChange(listener)
+
+      emit('SIGNED_IN', { access_token: 'token', user: { id: 'u1', email: 'runner_01@users.internal' } })
+
+      // Immediately after `emit` returns -- i.e. still synchronously inside what
+      // `onAuthStateChange`'s real implementation treats as its own callback -- no new
+      // query must have been issued yet. supabase-js documents that starting a new
+      // Supabase call synchronously from inside this callback can deadlock, because the
+      // callback runs while an internal auth lock is held.
+      expect(fake.from).not.toHaveBeenCalled()
+
+      await vi.waitFor(() => expect(fake.from).toHaveBeenCalled())
+      await vi.waitFor(() => expect(listener).toHaveBeenCalledWith({
+        accessToken: 'token',
+        user: { id: 'u1', username: 'runner_01', role: 'user', mustChangePassword: false },
+      }))
+    })
+
+    it('does not call the listener with null when a session exists but the profile fetch fails -- a transient failure must not read as a logout', async () => {
+      const { fake, emit } = createFakeClient({ profile: null })
+      const service = createSupabaseAuthService(fake)
+      const listener = vi.fn()
+      service.onSessionChange(listener)
+
+      emit('SIGNED_IN', { access_token: 'token', user: { id: 'u1', email: 'runner_01@users.internal' } })
+
+      // Give the deferred profile lookup a chance to resolve.
+      await vi.waitFor(() => expect(fake.from).toHaveBeenCalled())
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      expect(listener).not.toHaveBeenCalled()
+    })
+
+    it('still calls the listener with null for an actual sign-out (no session at all)', async () => {
+      const { fake, emit } = createFakeClient()
+      const service = createSupabaseAuthService(fake)
+      const listener = vi.fn()
+      service.onSessionChange(listener)
+
+      emit('SIGNED_OUT', null)
+
+      await vi.waitFor(() => expect(listener).toHaveBeenCalledWith(null))
+      expect(fake.from).not.toHaveBeenCalled()
+    })
   })
 })

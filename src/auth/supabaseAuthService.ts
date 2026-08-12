@@ -196,7 +196,25 @@ async function currentSession(client: SupabaseAuthClient): Promise<AuthSession |
 
 function onSessionChange(client: SupabaseAuthClient, listener: (session: AuthSession | null) => void): () => void {
   const { data } = client.auth.onAuthStateChange((_event, session) => {
-    void toAuthSession(client, session).then(listener)
+    // Deliberately deferred (via a macrotask) out of this synchronous callback:
+    // supabase-js documents that starting a new Supabase call directly inside
+    // `onAuthStateChange`'s callback is a deadlock hazard, since the callback runs
+    // while an internal auth lock is held. `toAuthSession` below issues a `profiles`
+    // query, so it must never run before this callback has returned.
+    setTimeout(() => {
+      if (!session) {
+        // An actual sign-out (no session at all) -- always a real logout.
+        listener(null)
+        return
+      }
+      // A session exists: only forward it once resolved. If `toAuthSession` resolves
+      // `null` here, that means the profile lookup itself failed or returned no row --
+      // NOT that the user signed out. Calling `listener(null)` in that case would read
+      // as a logout to `useAuth` and kick a still-validly-authenticated user back to the
+      // login screen over what may be a transient fetch failure. Simply not calling the
+      // listener preserves whatever session/user state the app already had.
+      void toAuthSession(client, session).then(resolved => { if (resolved) listener(resolved) })
+    }, 0)
   })
   return () => data.subscription.unsubscribe()
 }
