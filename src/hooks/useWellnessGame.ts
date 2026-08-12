@@ -19,29 +19,47 @@ import { reconcileApprovedTrainingWeek } from '../domain/weeklyTrainingGuidance'
 export interface WellnessState { version: 1; profile: UserProfile | null; nutritionTarget: NutritionTarget | null; smoothie: SmoothieItem[]; selectedActivityId: string; game: GameState; avatar: AvatarState; weeklyPlan?: WeeklyPlan; weightEntries?: WeightEntry[]; completionEvents?: CompletionEvent[] }
 const initial: WellnessState = { version: 1, profile: null, nutritionTarget: null, smoothie: [{ ingredientId: 'oats', grams: 40 }, { ingredientId: 'yogurt', grams: 150 }, { ingredientId: 'soy', grams: 200 }, { ingredientId: 'banana', grams: 100 }, { ingredientId: 'spinach', grams: 60 }], selectedActivityId: 'walk-basic', game: { level: 1, xp: 32, coins: 80, quests: [{ id: 'meal', title: '스무디 기록하기', kind: 'meal-log', xp: 20, coins: 10, completed: false }, { id: 'activity', title: '오늘의 운동 완료', kind: 'activity', xp: 40, coins: 20, completed: false }, { id: 'recovery', title: '5분 스트레칭', kind: 'recovery', xp: 15, coins: 5, completed: false }], processedEventIds: [] }, avatar: { ...AVATAR_DEFAULTS, unlockedIds:[...AVATAR_DEFAULTS.unlockedIds], equipped:{ ...AVATAR_DEFAULTS.equipped } }, weightEntries:[], completionEvents:[] }
 const repository = new LocalStorageWellnessRepository<WellnessState>()
-export function useWellnessGame(options: { repository?: WellnessRepository<WellnessState>; now?: () => Date } = {}) {
+
+/**
+ * Runs a known version-1 `WellnessState` through the same normalization path used when
+ * hydrating from local storage: array defaults, weight/event recovery, weekly plan
+ * reconciliation, avatar unlock grants, daily quest rollover, and profile defaults.
+ * Exported so `legacyStateMigrator` can validate and normalize a legacy state the same way
+ * before uploading it to the cloud.
+ */
+export function normalizeWellnessState(rawState: WellnessState, today: string): { state: WellnessState; warning?: string } {
+  const weights = rawState.weightEntries === undefined ? { entries:[] } : parseWeightEntries(rawState.weightEntries, today)
+  const events = rawState.completionEvents === undefined ? { events:[] } : parseCompletionEvents(rawState.completionEvents, today)
+  const parsedPlan: { plan:WeeklyPlan|null|undefined; warning?:string } = rawState.weeklyPlan === undefined ? { plan:undefined } : parseWeeklyPlan(rawState.weeklyPlan, activityTemplates)
+  const warnings = [weights.warning, events.warning, parsedPlan.warning].filter(Boolean)
+  const normalizedAvatar = normalizeAvatarState(rawState.avatar)
+  const avatar = grantAvatarUnlocks(normalizedAvatar, 0, rawState.game.level).state
+  const game = rolloverDailyQuests(rawState.game, today)
+  const weeklyPlan = parsedPlan.plan ? reconcileApprovedTrainingWeek(parsedPlan.plan) : undefined
+  const profile = normalizeProfile(rawState.profile)
+  return { state:{ ...rawState, game, avatar, profile, weeklyPlan, weightEntries:weights.entries, completionEvents:events.events }, warning:warnings.join(' ') || undefined }
+}
+
+export function useWellnessGame(options: { repository?: WellnessRepository<WellnessState>; initialState?: WellnessState; onStateChange?: (state: WellnessState) => void; now?: () => Date } = {}) {
   const activeRepository = options.repository ?? repository
   const now = options.now ?? (() => new Date())
+  const cloudManaged = options.initialState !== undefined
   const [loaded] = useState(() => {
-    const result = activeRepository.load()
     const today = toLocalDateKey(now())
+    if (options.initialState !== undefined) return normalizeWellnessState(options.initialState, today)
+    const result = activeRepository.load()
     if (result.state?.version !== 1) return { state:{ ...initial, game:rolloverDailyQuests(initial.game, today) }, warning:result.warning }
-    const weights = result.state.weightEntries === undefined ? { entries:[] } : parseWeightEntries(result.state.weightEntries, today)
-    const events = result.state.completionEvents === undefined ? { events:[] } : parseCompletionEvents(result.state.completionEvents, today)
-    const parsedPlan: { plan:WeeklyPlan|null|undefined; warning?:string } = result.state.weeklyPlan === undefined ? { plan:undefined } : parseWeeklyPlan(result.state.weeklyPlan, activityTemplates)
-    const warnings = [result.warning, weights.warning, events.warning, parsedPlan.warning].filter(Boolean)
-    const normalizedAvatar = normalizeAvatarState(result.state.avatar)
-    const avatar = grantAvatarUnlocks(normalizedAvatar, 0, result.state.game.level).state
-    const game = rolloverDailyQuests(result.state.game, today)
-    const weeklyPlan = parsedPlan.plan ? reconcileApprovedTrainingWeek(parsedPlan.plan) : undefined
-    const profile = normalizeProfile(result.state.profile)
-    return { state:{ ...result.state, game, avatar, profile, weeklyPlan, weightEntries:weights.entries, completionEvents:events.events }, warning:warnings.join(' ') || undefined }
+    const normalized = normalizeWellnessState(result.state, today)
+    return { state:normalized.state, warning:[result.warning, normalized.warning].filter(Boolean).join(' ') || undefined }
   })
   const [hookState, setHookState] = useState(() => ({ state:loaded.state, avatarUnlockMessage:'' }))
   const { state, avatarUnlockMessage } = hookState
   const setState = (update: (current: WellnessState) => WellnessState) => setHookState(current => ({ ...current, state:update(current.state) }))
   const [mutationMessage, setMutationMessage] = useState('')
-  useEffect(() => { try { activeRepository.save(state) } catch { /* keep memory state */ } }, [activeRepository, state])
+  useEffect(() => {
+    if (cloudManaged) { options.onStateChange?.(state); return }
+    try { activeRepository.save(state) } catch { /* keep memory state */ }
+  }, [activeRepository, state, cloudManaged, options.onStateChange])
   const applyMutation = (result: PlanMutationResult) => {
     if (result.ok) { setState(current => ({ ...current, weeklyPlan: result.plan })); setMutationMessage('') }
     else setMutationMessage(result.message)

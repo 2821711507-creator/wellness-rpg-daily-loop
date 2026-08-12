@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WellnessRepository } from '../repositories/wellnessRepository'
 import { useWellnessGame, type WellnessState } from './useWellnessGame'
 
@@ -313,5 +313,58 @@ describe('useWellnessGame weekly plans', () => {
     expect(restored.result.current.state.avatar).toMatchObject({ gender:'male', skin:'medium', equipped:{ hair:'hair-short' } })
     expect(restored.result.current.state.game.coins).toBe(555)
     expect(restored.result.current.state.smoothie).toEqual(saved.smoothie)
+  })
+
+  describe('cloud-managed state injection', () => {
+    it('hydrates a supplied initialState through the existing validators instead of the repository', () => {
+      const legacyShapedInitialState = {
+        version:1,
+        profile:null,
+        nutritionTarget:null,
+        smoothie:[],
+        selectedActivityId:'walk-basic',
+        game:{ level:1, xp:0, coins:0, quests:[], processedEventIds:[] },
+        avatar:{ base:'masculine', unlockedIds:[], equipped:{} },
+        weightEntries:[],
+        completionEvents:[],
+      } as unknown as WellnessState
+      const repository = memoryRepository({ ...legacyShapedInitialState, game:{ ...legacyShapedInitialState.game, coins:999 } })
+
+      const { result } = renderHook(() => useWellnessGame({ initialState:legacyShapedInitialState, repository, now:() => new Date(2026, 7, 11, 7) }))
+
+      expect(result.current.state.avatar).toMatchObject({ gender:'male', skin:'medium', equipped:{ hair:'hair-short' } })
+      expect(result.current.state.game.questDate).toBe('2026-08-11')
+      expect(result.current.state.game.coins).toBe(0)
+    })
+
+    it('calls onStateChange from the save effect on mount and after mutations, without touching the repository', () => {
+      const initialState = {
+        version:1,
+        profile:null,
+        nutritionTarget:null,
+        smoothie:[],
+        selectedActivityId:'walk-basic',
+        game:{ level:1, xp:0, coins:0, quests:[], processedEventIds:[] },
+        avatar:{ base:'masculine', unlockedIds:[], equipped:{} },
+        weightEntries:[],
+        completionEvents:[],
+      } as unknown as WellnessState
+      const onStateChange = vi.fn()
+      const repository: WellnessRepository<WellnessState> = {
+        load: () => { throw new Error('repository.load must not be called in cloud-managed mode') },
+        save: () => { throw new Error('repository.save must not be called in cloud-managed mode') },
+      }
+
+      const { result } = renderHook(() => useWellnessGame({ initialState, onStateChange, repository, now:() => new Date(2026, 7, 11, 7) }))
+
+      expect(onStateChange).toHaveBeenCalledTimes(1)
+      expect(onStateChange).toHaveBeenLastCalledWith(result.current.state)
+
+      act(() => result.current.setSmoothie([{ ingredientId:'banana', grams:50 }]))
+
+      expect(onStateChange).toHaveBeenCalledTimes(2)
+      expect(onStateChange).toHaveBeenLastCalledWith(expect.objectContaining({ smoothie:[{ ingredientId:'banana', grams:50 }] }))
+      expect(localStorage.getItem('wellness-rpg:v1')).toBeNull()
+    })
   })
 })
