@@ -12,16 +12,20 @@ import { useAuth, type UseAuthResult } from './hooks/useAuth'
 import { useCloudWellness, type SyncState } from './hooks/useCloudWellness'
 import { AuthScreen } from './components/AuthScreen'
 import { ForcePasswordChangeScreen } from './components/ForcePasswordChangeScreen'
+import { AdminRecoveryScreen } from './components/AdminRecoveryScreen'
 import type { AuthService } from './auth/authTypes'
 import { createSupabaseAuthService, type SupabaseAuthClient } from './auth/supabaseAuthService'
 import { createCloudWellnessRepository, type CloudWellnessClient, type CloudWellnessRepository } from './cloud/cloudWellnessRepository'
+import { createAdminRecoveryService, type AdminRecoveryClient, type AdminRecoveryService } from './admin/adminRecoveryService'
 
 type View = 'today'|'plan'|'records'|'avatar'
 
-/** The services `App` needs. Real Supabase-backed implementations are only built lazily (see `createDefaultServices`) so importing this module never reads `VITE_SUPABASE_*` env vars -- tests always inject fakes instead. */
+/** The services `App` needs. Real Supabase-backed implementations are only built lazily (see `createDefaultServices`) so importing this module never reads `VITE_SUPABASE_*` env vars -- tests always inject fakes instead.
+ * `adminRecoveryService` is optional: every pre-Task-8 caller (and every existing test's `fakeServices()`) omits it, and the admin route is simply unreachable without it -- see `AuthGate`. */
 export interface AppServices {
   authService: AuthService
   cloudRepository: CloudWellnessRepository<WellnessState>
+  adminRecoveryService?: AdminRecoveryService
 }
 
 async function createDefaultServices(): Promise<AppServices> {
@@ -32,6 +36,7 @@ async function createDefaultServices(): Promise<AppServices> {
   return {
     authService: createSupabaseAuthService(supabase as unknown as SupabaseAuthClient),
     cloudRepository: createCloudWellnessRepository(supabase as unknown as CloudWellnessClient),
+    adminRecoveryService: createAdminRecoveryService(supabase as unknown as AdminRecoveryClient),
   }
 }
 
@@ -99,6 +104,7 @@ function CloudConnectedApp({ userId, username, cloudRepository, justRegistered, 
 function AuthGate({ now, services }: { now: () => Date; services: AppServices }) {
   const auth = useAuth(services.authService)
   const [authEvent, setAuthEvent] = useState<{ userId: string; justRegistered: boolean } | null>(null)
+  const [showAdminRecovery, setShowAdminRecovery] = useState(false)
 
   const wrappedAuth: UseAuthResult = {
     ...auth,
@@ -120,8 +126,19 @@ function AuthGate({ now, services }: { now: () => Date; services: AppServices })
 
   const session = auth.session
   const justRegistered = authEvent?.userId === session.user.id && authEvent.justRegistered
+  // `services.adminRecoveryService` is only ever set for a real admin's session role check to
+  // matter (see `AppServices`), but `AdminRecoveryScreen` re-checks `session.user.role` itself
+  // regardless of how it was reached, so this route is never merely hidden-but-reachable.
+  const canOpenAdminRecovery = session.user.role === 'admin' && services.adminRecoveryService
+
+  if (canOpenAdminRecovery && showAdminRecovery) {
+    return <AdminRecoveryScreen session={session} service={services.adminRecoveryService!} onClose={() => setShowAdminRecovery(false)}/>
+  }
 
   return <ForcePasswordChangeScreen auth={wrappedAuth}>
+    {canOpenAdminRecovery && <div className="admin-entry-bar">
+      <button type="button" className="admin-entry-button" onClick={() => setShowAdminRecovery(true)}>관리자: 비밀번호 복구 관리</button>
+    </div>}
     <CloudConnectedApp
       key={session.user.id}
       userId={session.user.id}
