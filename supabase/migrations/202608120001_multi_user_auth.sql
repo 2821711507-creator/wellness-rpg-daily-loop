@@ -92,6 +92,21 @@ create policy profiles_select_own
   to authenticated
   using (user_id = auth.uid());
 
+-- Administrators may additionally read any profile row. This mirrors
+-- recovery_requests_select_admin below and exists so that
+-- AdminRecoveryService.listPending() (src/admin/adminRecoveryService.ts) can
+-- resolve each pending recovery request's username via a second query against
+-- this table -- without this policy an admin's cross-user profiles query is
+-- silently filtered to zero rows by RLS (not an error), which would make the
+-- recovery queue appear permanently empty. This policy is additive: it does
+-- not weaken profiles_select_own, since Postgres RLS OR-combines permissive
+-- policies for the same command.
+create policy profiles_select_admin
+  on public.profiles
+  for select
+  to authenticated
+  using (public.is_admin());
+
 grant select, update on public.profiles to authenticated;
 grant select, insert, update on public.profiles to service_role;
 

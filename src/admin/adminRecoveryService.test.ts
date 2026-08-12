@@ -14,6 +14,21 @@ interface FakeClientOptions {
   invokeResult?: { data: unknown; error: unknown }
 }
 
+// Note on realism: this fake's `profiles` table has no notion of row-level
+// security -- `.in('user_id', userIds)` always returns every row passed in
+// `profiles`, regardless of which user is "logged in". That matches real
+// production behavior *given* the `profiles_select_admin` RLS policy added in
+// `supabase/migrations/202608120001_multi_user_auth.sql` (an administrator's
+// query against `profiles` is filtered only by the `.in()` predicate, not by
+// row ownership). Before that policy existed, the equivalent real query would
+// have been silently filtered down to zero rows by RLS -- a production
+// behavior this JS-level fake cannot represent, since it never sees a role or
+// an RLS policy, only the query-builder calls. That gap between "what the fake
+// returns" and "what Postgres actually returns" is exactly what let the
+// missing-policy bug slip past this test suite; the regression coverage for
+// the policy itself lives in `supabase/tests/multi_user_auth_test.sql`
+// (`administrator can read another user's profile username` /
+// `ordinary user cannot read another user's profile row`), not here.
 function createFakeClient({
   requests = [],
   requestsError = null,

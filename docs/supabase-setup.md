@@ -106,38 +106,26 @@ Once a user's `role` is `admin`, they will see a "관리자: 비밀번호 복구
 point above the app after logging in, which opens `AdminRecoveryScreen`
 (`src/components/AdminRecoveryScreen.tsx`).
 
-## Known limitation: recovery queue usernames require a follow-up migration
+## Recovery queue usernames: admin read policy on `profiles`
 
 `AdminRecoveryService.listPending()` (`src/admin/adminRecoveryService.ts`) queries
 `public.password_recovery_requests` (allowed for admins by the
 `recovery_requests_select_admin` policy) and then looks up each requester's
 `username` with a second query against `public.profiles`.
 
-As shipped by the Task 2 migration (`202608120001_multi_user_auth.sql`),
-`public.profiles` has **only** an own-row select policy
-(`profiles_select_own using (user_id = auth.uid())`) -- there is no admin bypass.
-Against a real deployed project, an administrator's client-side query for another
-user's `profiles` row will be filtered out by RLS and return no data, so the
-recovery queue would show requests but be unable to resolve their usernames.
-
-This was intentionally **not** worked around by editing the already-committed Task 2
-migration or by adding an undocumented new Edge Function, since neither was in this
-task's scope. Before deploying the administrator recovery screen against a real
-project, add a small follow-up migration such as:
-
-```sql
-create policy profiles_select_admin
-  on public.profiles
-  for select
-  to authenticated
-  using (public.is_admin());
-```
-
-(or, if broader admin visibility into `profiles` is undesirable, replace the
-client-side profile lookup in `adminRecoveryService.ts` with a dedicated
-service-role Edge Function, mirroring `admin-reset-password`.) This gap only affects
-the recovery queue's UI join -- it does not weaken any existing RLS guarantee, since
-`profiles_select_own` still denies ordinary users' access to each other's rows.
+`public.profiles` carries two SELECT policies: `profiles_select_own` (a user may
+read their own row) and `profiles_select_admin` (an administrator, per
+`public.is_admin()`, may read any row). Both are part of the
+`202608120001_multi_user_auth.sql` migration itself, so `supabase db push` installs
+`profiles_select_admin` along with everything else in that migration -- no
+follow-up migration or manual step is needed for the recovery queue to resolve
+usernames on a real deployed project. This is covered by the pgTAP assertions
+`ordinary user can still read own profile row`, `ordinary user cannot read another
+user's profile row`, and `administrator can read another user's profile username`
+in `supabase/tests/multi_user_auth_test.sql` (unexecuted pending Docker -- see
+`supabase test db` above -- but manually traced against the policy definitions).
+This does not weaken any existing RLS guarantee: `profiles_select_own` alone still
+governs ordinary users, who continue to be denied access to each other's rows.
 
 ## Everything else
 
