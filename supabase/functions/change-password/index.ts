@@ -61,7 +61,16 @@ export async function handleChangePassword(req: Request, deps: ChangePasswordDep
     return failResponse('unknown', '비밀번호를 변경하지 못했어요.', 500)
   }
 
-  await adminClient.from('profiles').update({ must_change_password: false }).eq('user_id', callerId)
+  const { error: profileUpdateError } = await adminClient
+    .from('profiles')
+    .update({ must_change_password: false })
+    .eq('user_id', callerId)
+  if (profileUpdateError) {
+    // The Auth password was already changed, but we can no longer guarantee the
+    // forced-change flag was actually cleared -- surface this as a failure rather
+    // than silently leaving the caller stuck in forced-change mode.
+    return failResponse('unknown', '비밀번호는 변경됐지만 계정 상태를 갱신하지 못했어요.', 500)
+  }
 
   return okResponse({})
 }

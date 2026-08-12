@@ -94,12 +94,24 @@ export async function handleAdminResetPassword(req: Request, deps: AdminResetDep
     return failResponse('unknown', '비밀번호를 재설정하지 못했어요.', 500)
   }
 
-  await adminClient.from('profiles').update({ must_change_password: true }).eq('user_id', targetUserId)
+  const { error: profileUpdateError } = await adminClient
+    .from('profiles')
+    .update({ must_change_password: true })
+    .eq('user_id', targetUserId)
+  if (profileUpdateError) {
+    // The Auth password was already reset, but we can no longer guarantee the
+    // "forces replacement at next login" flag was set -- do not hand back the
+    // temporary password as if this succeeded.
+    return failResponse('unknown', '비밀번호를 재설정했지만 계정 상태를 갱신하지 못했어요.', 500)
+  }
 
-  await adminClient
+  const { error: resolveError } = await adminClient
     .from('password_recovery_requests')
     .update({ status: 'resolved', resolved_at: new Date().toISOString(), resolved_by: callerId })
     .eq('id', requestId)
+  if (resolveError) {
+    return failResponse('unknown', '요청 처리 상태를 갱신하지 못했어요.', 500)
+  }
 
   return okResponse({ temporaryPassword })
 }

@@ -47,6 +47,14 @@ class FakeAdminClient implements RegisterAdminClient, RecoveryAdminClient, Admin
   /** Set to force the next `profiles` insert to fail, for compensating-transaction tests. */
   failProfileInsert = false
 
+  /** Set to force any `profiles` table `.update().eq()` call to fail, for
+   * secondary-write-error tests. */
+  failProfileUpdate = false
+
+  /** Set to force any `password_recovery_requests` table `.update().eq()` call to
+   * fail, for secondary-write-error tests. */
+  failRecoveryUpdate = false
+
   readonly deletedUserIds: string[] = []
   readonly updateUserByIdCalls: Array<{ userId: string; password: string }> = []
 
@@ -139,6 +147,12 @@ class FakeAdminClient implements RegisterAdminClient, RecoveryAdminClient, Admin
       },
       update: (patch: Row) => ({
         eq: (column: string, value: unknown) => {
+          if (name === 'profiles' && this.failProfileUpdate) {
+            return Promise.resolve({ error: { message: 'profile update failed', code: 'unknown' } })
+          }
+          if (name === 'password_recovery_requests' && this.failRecoveryUpdate) {
+            return Promise.resolve({ error: { message: 'recovery update failed', code: 'unknown' } })
+          }
           for (const row of table.rows) if (row[column] === value) Object.assign(row, patch)
           return Promise.resolve({ error: null })
         },
@@ -221,6 +235,28 @@ Deno.test('register-username: cleans up the Auth user when profile creation fail
   // The Auth user was rolled back, so its email is free again.
   assert(!admin.emailExists('runner_two@users.internal'))
   assertEquals(admin.rowsIn('profiles').length, 0)
+})
+
+Deno.test('register-username: profile-insert 23505 unique violation (Auth user created, distinct from the email-duplicate path) returns duplicate-username and rolls back the Auth user', async () => {
+  const admin = new FakeAdminClient()
+  // Seed a `profiles` row directly, with no matching Auth user/email, so `createUser`
+  // succeeds (the email is free) and the handler reaches the profile insert -- which
+  // then hits the fake's `23505` unique-violation branch on `username`. This is the
+  // only way to exercise `isDuplicateUsernameError`, since the email-duplicate check
+  // always fires first for two normalizations of the *same* registration attempt.
+  admin.seedProfile({ user_id: 'existing-user', username: 'racer_one' })
+
+  const result = await call(handleRegisterUsername, admin, { username: 'racer_one', password: 'longenoughpassword' })
+
+  assertEquals(result.status, 409)
+  assertEquals(result.body.ok, false)
+  assertEquals(result.body.code, 'duplicate-username')
+  // Compensating transaction: the Auth user created moments before the profile
+  // insert failed must not survive.
+  assertEquals(admin.deletedUserIds.length, 1)
+  assert(!admin.emailExists('racer_one@users.internal'))
+  // Only the seeded profile remains -- the failed insert did not add a second row.
+  assertEquals(admin.rowsIn('profiles').length, 1)
 })
 
 // ---------------------------------------------------------------------------
@@ -325,6 +361,32 @@ Deno.test('admin-reset-password: resolves the recovery request with resolver met
   assert(typeof request?.resolved_at === 'string' && request.resolved_at.length > 0)
 })
 
+Deno.test('admin-reset-password: fails the whole request when the must_change_password update fails, even though the Auth password write already succeeded', async () => {
+  const admin = new FakeAdminClient()
+  const { adminToken } = seedAdminAndUser(admin)
+  admin.failProfileUpdate = true
+
+  const result = await call(handleAdminResetPassword, admin, { requestId: 'req-1' }, adminToken)
+
+  assertEquals(result.body.ok, false)
+  assert(result.status >= 400)
+  // The temporary password must never be handed back if we can't guarantee the
+  // "forces replacement at next login" flag was actually set.
+  assert(!Object.prototype.hasOwnProperty.call(result.body, 'temporaryPassword'))
+})
+
+Deno.test('admin-reset-password: fails the whole request when resolving the recovery request fails', async () => {
+  const admin = new FakeAdminClient()
+  const { adminToken } = seedAdminAndUser(admin)
+  admin.failRecoveryUpdate = true
+
+  const result = await call(handleAdminResetPassword, admin, { requestId: 'req-1' }, adminToken)
+
+  assertEquals(result.body.ok, false)
+  assert(result.status >= 400)
+  assert(!Object.prototype.hasOwnProperty.call(result.body, 'temporaryPassword'))
+})
+
 Deno.test('admin-reset-password: unknown request id is rejected', async () => {
   const admin = new FakeAdminClient()
   const { adminToken } = seedAdminAndUser(admin)
@@ -377,6 +439,18 @@ Deno.test('change-password: rejects a password shorter than 8 characters', async
   assertEquals(result.status, 400)
   assertEquals(result.body.code, 'weak-password')
   assertEquals(admin.updateUserByIdCalls.length, 0)
+})
+
+Deno.test('change-password: fails the whole request when clearing must_change_password fails, even though the Auth password write already succeeded', async () => {
+  const admin = new FakeAdminClient()
+  admin.seedProfile({ user_id: 'user-1', username: 'runner_one', role: 'user', must_change_password: true })
+  const token = admin.issueSession('user-1')
+  admin.failProfileUpdate = true
+
+  const result = await call(handleChangePassword, admin, { password: 'brandnewpassword' }, token)
+
+  assertEquals(result.body.ok, false)
+  assert(result.status >= 400)
 })
 
 Deno.test('change-password: rejects an unauthenticated caller', async () => {
