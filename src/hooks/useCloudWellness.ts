@@ -1,0 +1,146 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { CloudWellnessRepository } from '../cloud/cloudWellnessRepository'
+import { migrateLegacyState, type LegacyStorage } from '../cloud/legacyStateMigrator'
+import { defaultWellnessState, type WellnessState } from './useWellnessGame'
+
+export type SyncState = 'loading'|'saved'|'saving'|'waiting'|'conflict'|'error'
+
+const DEBOUNCE_MS = 300
+
+/** The minimal storage surface this hook depends on for its per-user pending-save cache. Browser `localStorage` satisfies it. */
+export type CloudWellnessStorage = LegacyStorage & { setItem(key: string, value: string): void }
+
+const pendingKey = (userId: string) => `wellness-rpg:pending:${userId}`
+
+export interface UseCloudWellnessOptions {
+  userId: string
+  repository: CloudWellnessRepository<WellnessState>
+  /** True only for the single session where this user just completed registration; drives the one-time legacy import. */
+  justRegistered?: boolean
+  now?: () => Date
+  storage?: CloudWellnessStorage
+  debounceMs?: number
+}
+
+export interface UseCloudWellnessResult {
+  syncState: SyncState
+  /** `undefined` until the initial remote load (and any first-registration migration) has resolved. */
+  initialState: WellnessState | undefined
+  onStateChange: (state: WellnessState) => void
+  /** Discards any pending local edit and re-fetches the user's remote state, clearing a `conflict`. */
+  reloadRemote: () => void
+  /** Re-sends the latest local state after an `error`. */
+  retry: () => void
+}
+
+/**
+ * Bridges an authenticated user's `AuthSession.user.id` to their private `CloudWellnessRepository` row: loads
+ * remote state (optionally preceded by a one-time legacy-local import on first registration), then accepts
+ * `onStateChange` updates from `useWellnessGame`'s cloud-managed mode, debouncing revisioned saves. A save that
+ * fails is retained under `wellness-rpg:pending:<userId>` and retried on the next `online` event; a revision
+ * conflict stops all further saves until the caller calls `reloadRemote`.
+ */
+export function useCloudWellness({
+  userId,
+  repository,
+  justRegistered = false,
+  now = () => new Date(),
+  storage = window.localStorage,
+  debounceMs = DEBOUNCE_MS,
+}: UseCloudWellnessOptions): UseCloudWellnessResult {
+  const [syncState, setSyncState] = useState<SyncState>('loading')
+  const [initialState, setInitialState] = useState<WellnessState | undefined>(undefined)
+  const revisionRef = useRef(0)
+  const latestStateRef = useRef<WellnessState | undefined>(undefined)
+  const conflictRef = useRef(false)
+  const savingRef = useRef(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const persistPending = useCallback((state: WellnessState) => storage.setItem(pendingKey(userId), JSON.stringify(state)), [storage, userId])
+  const clearPending = useCallback(() => storage.removeItem(pendingKey(userId)), [storage, userId])
+
+  const runSave = useCallback(async () => {
+    if (conflictRef.current || savingRef.current) return
+    const state = latestStateRef.current
+    if (state === undefined) return
+    savingRef.current = true
+    setSyncState('saving')
+    const result = await repository.save(userId, state, revisionRef.current)
+    savingRef.current = false
+    if (result.ok) {
+      revisionRef.current = result.revision
+      clearPending()
+      if (latestStateRef.current === state) setSyncState('saved')
+      else void runSave()
+    } else if (result.reason === 'conflict') {
+      conflictRef.current = true
+      persistPending(state)
+      setSyncState('conflict')
+    } else {
+      persistPending(state)
+      setSyncState(typeof navigator !== 'undefined' && navigator.onLine === false ? 'waiting' : 'error')
+    }
+  }, [repository, userId, clearPending, persistPending])
+
+  useEffect(() => {
+    let active = true
+    setSyncState('loading')
+    setInitialState(undefined)
+    conflictRef.current = false
+    ;(async () => {
+      if (justRegistered) {
+        try { await migrateLegacyState({ userId, repository, storage, now }) } catch { /* best-effort; remote load below still proceeds */ }
+      }
+      const pendingRaw = storage.getItem(pendingKey(userId))
+      const loaded = await repository.load(userId)
+      if (!active) return
+      revisionRef.current = loaded.revision
+      let effectiveState = loaded.state ?? defaultWellnessState
+      let hadPending = false
+      if (pendingRaw) {
+        try { effectiveState = JSON.parse(pendingRaw) as WellnessState; hadPending = true }
+        catch { /* corrupt pending cache: fall back to the remote state */ }
+      }
+      latestStateRef.current = effectiveState
+      setInitialState(effectiveState)
+      setSyncState('saved')
+      if (hadPending) void runSave()
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    })()
+    return () => { active = false }
+    // Intentionally keyed only on userId: repository/storage/now/justRegistered are expected stable for a session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
+
+  useEffect(() => {
+    const retryOnline = () => { if (!conflictRef.current) void runSave() }
+    window.addEventListener('online', retryOnline)
+    return () => window.removeEventListener('online', retryOnline)
+  }, [runSave])
+
+  const onStateChange = useCallback((state: WellnessState) => {
+    latestStateRef.current = state
+    if (conflictRef.current) return
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => { void runSave() }, debounceMs)
+  }, [debounceMs, runSave])
+
+  const reloadRemote = useCallback(() => {
+    conflictRef.current = false
+    clearPending()
+    setSyncState('loading')
+    setInitialState(undefined)
+    void (async () => {
+      const loaded = await repository.load(userId)
+      revisionRef.current = loaded.revision
+      const state = loaded.state ?? defaultWellnessState
+      latestStateRef.current = state
+      setInitialState(state)
+      setSyncState('saved')
+    })()
+  }, [repository, userId, clearPending])
+
+  const retry = useCallback(() => { void runSave() }, [runSave])
+
+  return { syncState, initialState, onStateChange, reloadRemote, retry }
+}

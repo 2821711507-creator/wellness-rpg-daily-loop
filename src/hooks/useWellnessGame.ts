@@ -17,7 +17,8 @@ import { deleteWeightEntry, upsertWeightEntry, type WeightEntry } from '../domai
 import { reconcileApprovedTrainingWeek } from '../domain/weeklyTrainingGuidance'
 
 export interface WellnessState { version: 1; profile: UserProfile | null; nutritionTarget: NutritionTarget | null; smoothie: SmoothieItem[]; selectedActivityId: string; game: GameState; avatar: AvatarState; weeklyPlan?: WeeklyPlan; weightEntries?: WeightEntry[]; completionEvents?: CompletionEvent[] }
-const initial: WellnessState = { version: 1, profile: null, nutritionTarget: null, smoothie: [{ ingredientId: 'oats', grams: 40 }, { ingredientId: 'yogurt', grams: 150 }, { ingredientId: 'soy', grams: 200 }, { ingredientId: 'banana', grams: 100 }, { ingredientId: 'spinach', grams: 60 }], selectedActivityId: 'walk-basic', game: { level: 1, xp: 32, coins: 80, quests: [{ id: 'meal', title: '스무디 기록하기', kind: 'meal-log', xp: 20, coins: 10, completed: false }, { id: 'activity', title: '오늘의 운동 완료', kind: 'activity', xp: 40, coins: 20, completed: false }, { id: 'recovery', title: '5분 스트레칭', kind: 'recovery', xp: 15, coins: 5, completed: false }], processedEventIds: [] }, avatar: { ...AVATAR_DEFAULTS, unlockedIds:[...AVATAR_DEFAULTS.unlockedIds], equipped:{ ...AVATAR_DEFAULTS.equipped } }, weightEntries:[], completionEvents:[] }
+/** The state a brand-new profile starts from, whether persisted locally or freshly created for a cloud account with no remote row yet. */
+export const defaultWellnessState: WellnessState = { version: 1, profile: null, nutritionTarget: null, smoothie: [{ ingredientId: 'oats', grams: 40 }, { ingredientId: 'yogurt', grams: 150 }, { ingredientId: 'soy', grams: 200 }, { ingredientId: 'banana', grams: 100 }, { ingredientId: 'spinach', grams: 60 }], selectedActivityId: 'walk-basic', game: { level: 1, xp: 32, coins: 80, quests: [{ id: 'meal', title: '스무디 기록하기', kind: 'meal-log', xp: 20, coins: 10, completed: false }, { id: 'activity', title: '오늘의 운동 완료', kind: 'activity', xp: 40, coins: 20, completed: false }, { id: 'recovery', title: '5분 스트레칭', kind: 'recovery', xp: 15, coins: 5, completed: false }], processedEventIds: [] }, avatar: { ...AVATAR_DEFAULTS, unlockedIds:[...AVATAR_DEFAULTS.unlockedIds], equipped:{ ...AVATAR_DEFAULTS.equipped } }, weightEntries:[], completionEvents:[] }
 const repository = new LocalStorageWellnessRepository<WellnessState>()
 
 /**
@@ -48,7 +49,7 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     const today = toLocalDateKey(now())
     if (options.initialState !== undefined) return normalizeWellnessState(options.initialState, today)
     const result = activeRepository.load()
-    if (result.state?.version !== 1) return { state:{ ...initial, game:rolloverDailyQuests(initial.game, today) }, warning:result.warning }
+    if (result.state?.version !== 1) return { state:{ ...defaultWellnessState, game:rolloverDailyQuests(defaultWellnessState.game, today) }, warning:result.warning }
     const normalized = normalizeWellnessState(result.state, today)
     return { state:normalized.state, warning:[result.warning, normalized.warning].filter(Boolean).join(' ') || undefined }
   })
