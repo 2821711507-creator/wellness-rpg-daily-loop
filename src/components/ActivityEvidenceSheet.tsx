@@ -4,5 +4,5 @@ const EVIDENCE = [
 ]
 
 export function ActivityEvidenceSheet() {
-  return <details><summary>계산 근거 보기</summary><div className="equation">kcal = MET × 체중(kg) × (분/60)</div><p>MET(대사량 단위) 값은 운동 강도를 나타내는 국제 표준 지표예요.</p><ul>{EVIDENCE.map(item => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a> · {item.publisher}</li>)}</ul></details>
+  return <details><summary>계산 근거 보기</summary><div className="equation">kcal = MET × 체중(kg) × (분/60)</div><p>MET(대사량 단위) 값은 운동 강도를 나타내는 국제 표준 지표예요.</p><p>WHO는 성인에게 주당 150~300분의 중강도 유산소 운동, 또는 주당 75~150분의 고강도 유산소 운동을 권장해요.</p><ul>{EVIDENCE.map(item => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a> · {item.publisher}</li>)}</ul></details>
 }

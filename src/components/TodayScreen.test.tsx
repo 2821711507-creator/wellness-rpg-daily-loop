@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { AuthResult } from '../auth/authTypes'
+import { activityTemplates } from '../data/activityTemplates'
 import type { UserProfile } from '../domain/profile'
 import { defaultWellnessState } from '../hooks/useWellnessGame'
 import { TodayScreen, type TodayAccount } from './TodayScreen'
@@ -127,6 +128,43 @@ describe('TodayScreen AccountMenu', () => {
     // The form stays open on failure, unlike the success case.
     expect(screen.getByLabelText('새 비밀번호')).toBeInTheDocument()
     expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
+})
+
+describe('다른 운동 선택', () => {
+  it('cycles only through templates that share the current activity\'s environment', async () => {
+    const user = userEvent.setup()
+
+    function Harness() {
+      const [selectedActivityId, setSelectedActivityId] = useState('home-basic')
+      return (
+        <TodayScreen
+          state={{...defaultWellnessState, profile: PROFILE, selectedActivityId}}
+          setSmoothie={noop}
+          setActivity={setSelectedActivityId}
+          complete={noop}
+          onOpenPlan={noop}
+          onOpenRecords={noop}
+          onOpenAvatar={noop}
+          onOpenMore={noop}
+        />
+      )
+    }
+    render(<Harness/>)
+
+    const homeTemplates = activityTemplates.filter(item => item.environment === 'home')
+    const gymOnlyTitle = activityTemplates.find(item => item.id === 'gym-basic')!.title
+
+    expect(screen.getByRole('heading', { level: 2, name: homeTemplates[0].title })).toBeInTheDocument()
+
+    // Click past the full home-only cycle (and one extra lap) to prove it wraps
+    // within home templates instead of ever reaching a gym-only template.
+    for (let i = 1; i <= homeTemplates.length + 2; i++) {
+      await user.click(screen.getByRole('button', { name: '다른 운동 선택' }))
+      const expectedTitle = homeTemplates[i % homeTemplates.length].title
+      expect(screen.getByRole('heading', { level: 2, name: expectedTitle })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { level: 2, name: gymOnlyTitle })).not.toBeInTheDocument()
+    }
   })
 })
 

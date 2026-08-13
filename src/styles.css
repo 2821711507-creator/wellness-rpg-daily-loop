@@ -16,6 +16,8 @@
 body{margin:0;min-width:320px;overflow-x:clip;background:#faf9fc}
 button,input,select{font:inherit;min-height:44px}
 button{cursor:pointer}
+summary{cursor:pointer}
+.equation{padding:14px;border-radius:12px;background:var(--soft);color:var(--ink);font-family:ui-monospace,monospace;margin-top:12px}
 :focus-visible{outline:3px solid var(--accent-soft);outline-offset:2px}
 h1,h2,p{margin-top:0}
 h1{font-size:clamp(1.8rem,5vw,2.5rem);letter-spacing:-.04em;margin-bottom:0}
