@@ -3,15 +3,18 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { AuthResult } from '../auth/authTypes'
+import type { UserProfile } from '../domain/profile'
 import { defaultWellnessState } from '../hooks/useWellnessGame'
 import { TodayScreen, type TodayAccount } from './TodayScreen'
 
 function noop() {}
 
+const PROFILE: UserProfile = { age:30, heightCm:170, weightKg:65, calculationSex:'female', activityLevel:'light', goal:'cut', cutIntensity:'mild' }
+
 function renderTodayScreen(account: TodayAccount) {
   return render(
     <TodayScreen
-      state={defaultWellnessState}
+      state={{...defaultWellnessState, profile: PROFILE}}
       setSmoothie={noop}
       setActivity={noop}
       complete={noop}
@@ -98,7 +101,7 @@ describe('TodayScreen AccountMenu', () => {
       }
       return (
         <TodayScreen
-          state={defaultWellnessState}
+          state={{...defaultWellnessState, profile: PROFILE}}
           setSmoothie={noop}
           setActivity={noop}
           complete={noop}
@@ -133,7 +136,7 @@ describe('더보기', () => {
     const onOpenMore = vi.fn()
     render(
       <TodayScreen
-        state={defaultWellnessState}
+        state={{...defaultWellnessState, profile: PROFILE}}
         setSmoothie={noop}
         setActivity={noop}
         complete={noop}
