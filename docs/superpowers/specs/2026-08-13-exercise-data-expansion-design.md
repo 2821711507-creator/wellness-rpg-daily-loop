@@ -87,15 +87,16 @@ touch:
   Since that file is out of scope, these 5 keep their ids and content;
   new templates are added alongside them, not in place of them.
 
-One small adjacent fix: **`intensity` is binary today.**
-`PlanItemActions.tsx`'s swap dialog reads
-`template.intensity === 'easy' ? '가볍게' : '보통 강도'`. It can't currently
-be reached with a `'hard'` template today (that dialog only shows the 3
-`-basic` entries, none of which become `'hard'`), but adding a third
-`intensity` value while leaving the label mapping binary is a latent bug
-waiting for the next thing that touches this dialog. Fixed alongside this
-change since it's a one-line, zero-risk 3-way mapping (`가볍게` / `보통 강도`
-/ `고강도`).
+**Known, accepted gap:** `PlanItemActions.tsx`'s swap dialog reads
+`template.intensity === 'easy' ? '가볍게' : '보통 강도'` — a binary mapping
+that would mislabel a `'hard'` template as "보통 강도". `intensity` still
+gains `'hard'` (HIIT needs it), but this dialog imports `activityTemplates`
+directly (no injected/mockable template list), and only ever displays the 3
+`-basic` entries — none of which become `'hard'` per the decision above — so
+the mislabeling is provably unreachable with real data today. A genuine TDD
+fix would need a DI refactor of this component, which is out of scope here.
+Left as a one-line comment at the ternary noting the gap for whoever next
+touches this dialog with real `'hard'` data.
 
 `environment` continues to double as the equipment tier the user picked
 (gym-machine access / home-equipment / bodyweight-only) — no new field, per
@@ -176,4 +177,3 @@ every template in the array — old and new — is tagged consistently.
   the estimated-kcal text for a given `weightKg`.
 - `ActivityEvidenceSheet.test.tsx` (new): renders both citations with working
   links.
-- `PlanItemActions.test.tsx`: extend for the 3-way intensity label mapping.
