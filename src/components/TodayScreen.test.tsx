@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { AuthResult } from '../auth/authTypes'
 import { activityTemplates } from '../data/activityTemplates'
 import type { UserProfile } from '../domain/profile'
+import { generateWeeklyPlan, replacePlannedActivity, type WeeklyPlan } from '../domain/weeklyPlan'
 import { defaultWellnessState } from '../hooks/useWellnessGame'
 import { TodayScreen, type TodayAccount } from './TodayScreen'
 
@@ -193,6 +194,50 @@ describe('다른 운동 선택', () => {
       await user.click(screen.getByRole('button', { name: '다른 운동 선택' }))
       expect(screen.queryByRole('heading', { level: 2, name: vagueTitle })).not.toBeInTheDocument()
     }
+  })
+
+  it("replaces today's planned activity (not just the unused local selection) when a weekly plan covers today", async () => {
+    const user = userEvent.setup()
+    const now = () => new Date(2026, 7, 10, 7) // Monday 2026-08-10, the plan's own weekStart
+
+    function Harness() {
+      const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>(() => {
+        const result = generateWeeklyPlan({
+          weekStart: '2026-08-10',
+          preferences: { mealsPerDay: 3, smoothieSlots: [], activitiesPerWeek: 3, activityMix: { gym: 1, home: 1, walk: 1 } },
+          smoothieItems: [],
+          activityTemplates,
+        })
+        if (!result.ok) throw new Error(result.message)
+        return result.plan
+      })
+      return (
+        <TodayScreen
+          state={{...defaultWellnessState, profile: PROFILE, weeklyPlan}}
+          setSmoothie={noop}
+          setActivity={noop}
+          complete={noop}
+          onOpenPlan={noop}
+          onOpenRecords={noop}
+          onOpenAvatar={noop}
+          onOpenMore={noop}
+          now={now}
+          replaceActivity={(id, templateId) => {
+            const result = replacePlannedActivity(weeklyPlan, id, templateId, activityTemplates)
+            if (result.ok) setWeeklyPlan(result.plan)
+            return result
+          }}
+        />
+      )
+    }
+    render(<Harness/>)
+
+    const gymTitle = activityTemplates.find(item => item.id === 'gym-basic')!.title
+    expect(screen.getByRole('heading', { level: 2, name: gymTitle })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '다른 운동 선택' }))
+
+    expect(screen.queryByRole('heading', { level: 2, name: gymTitle })).not.toBeInTheDocument()
   })
 })
 

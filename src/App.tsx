@@ -80,7 +80,7 @@ export function WellnessApp({ now = () => new Date(), initialState, onStateChang
   const content = !game.state.profile
     ? <Onboarding onComplete={game.onboard}/>
     : view === 'today'
-      ? <TodayScreen state={game.state} setSmoothie={game.setSmoothie} setActivity={game.setActivity} complete={game.complete} onOpenPlan={() => setView('plan')} onOpenRecords={() => setView('records')} onOpenAvatar={() => setView('avatar')} onOpenMore={() => setView('more')} customizeButtonRef={customizeButtonRef} now={now} account={account}/>
+      ? <TodayScreen state={game.state} setSmoothie={game.setSmoothie} setActivity={game.setActivity} replaceActivity={game.replaceActivity} complete={game.complete} onOpenPlan={() => setView('plan')} onOpenRecords={() => setView('records')} onOpenAvatar={() => setView('avatar')} onOpenMore={() => setView('more')} customizeButtonRef={customizeButtonRef} now={now} account={account}/>
       : view === 'avatar'
         ? <div className="app-shell"><header className="topbar"><div className="brand-mark">W</div><div><p className="eyebrow">나만의 모험가</p><h1>캐릭터 꾸미기</h1></div></header><AvatarCustomizer state={game.state.avatar} gameLevel={game.state.game.level} onGenderChange={game.setAvatarGender} onSkinChange={game.setAvatarSkin} onEquip={game.equipAvatarItem} onUnequip={game.unequipAvatarItem} onClose={closeAvatar}/></div>
         : view === 'more'
