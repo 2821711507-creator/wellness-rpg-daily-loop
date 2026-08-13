@@ -152,7 +152,7 @@ describe('다른 운동 선택', () => {
     }
     render(<Harness/>)
 
-    const homeTemplates = activityTemplates.filter(item => item.environment === 'home')
+    const homeTemplates = activityTemplates.filter(item => item.environment === 'home' && item.id !== 'mixed-hiit-completed')
     const gymOnlyTitle = activityTemplates.find(item => item.id === 'gym-basic')!.title
 
     expect(screen.getByRole('heading', { level: 2, name: homeTemplates[0].title })).toBeInTheDocument()
@@ -164,6 +164,34 @@ describe('다른 운동 선택', () => {
       const expectedTitle = homeTemplates[i % homeTemplates.length].title
       expect(screen.getByRole('heading', { level: 2, name: expectedTitle })).toBeInTheDocument()
       expect(screen.queryByRole('heading', { level: 2, name: gymOnlyTitle })).not.toBeInTheDocument()
+    }
+  })
+
+  it('never rotates into a narrative-only template written for a specific hardcoded week', async () => {
+    const user = userEvent.setup()
+
+    function Harness() {
+      const [selectedActivityId, setSelectedActivityId] = useState('walk-basic')
+      return (
+        <TodayScreen
+          state={{...defaultWellnessState, profile: PROFILE, selectedActivityId}}
+          setSmoothie={noop}
+          setActivity={setSelectedActivityId}
+          complete={noop}
+          onOpenPlan={noop}
+          onOpenRecords={noop}
+          onOpenAvatar={noop}
+          onOpenMore={noop}
+        />
+      )
+    }
+    render(<Harness/>)
+
+    const vagueTitle = activityTemplates.find(item => item.id === 'light-cardio-conditional')!.title
+
+    for (let i = 0; i < 6; i++) {
+      await user.click(screen.getByRole('button', { name: '다른 운동 선택' }))
+      expect(screen.queryByRole('heading', { level: 2, name: vagueTitle })).not.toBeInTheDocument()
     }
   })
 })
