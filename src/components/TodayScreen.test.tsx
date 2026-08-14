@@ -11,7 +11,7 @@ import { TodayScreen, type TodayAccount } from './TodayScreen'
 
 function noop() {}
 
-const PROFILE: UserProfile = { age:30, heightCm:170, weightKg:65, calculationSex:'female', activityLevel:'light', goal:'cut', cutIntensity:'mild' }
+const PROFILE: UserProfile = { age:30, heightCm:170, weightKg:65, calculationSex:'female', activityLevel:'light', goal:'cut', cutIntensity:'mild', exerciseExperience:'experienced' }
 
 function renderTodayScreen(account: TodayAccount) {
   return render(

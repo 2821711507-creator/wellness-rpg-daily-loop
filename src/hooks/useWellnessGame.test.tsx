@@ -68,7 +68,7 @@ describe('useWellnessGame weekly plans', () => {
 
     const { result } = renderHook(() => useWellnessGame({ repository, now:() => new Date(2026, 7, 11, 7) }))
 
-    expect(result.current.state.profile).toEqual({ age:30, heightCm:175, weightKg:80, calculationSex:'male', activityLevel:'light', goal:'cut', cutIntensity:'mild' })
+    expect(result.current.state.profile).toEqual({ age:30, heightCm:175, weightKg:80, calculationSex:'male', activityLevel:'light', goal:'cut', cutIntensity:'mild', exerciseExperience:'beginner' })
   })
 
   it('grants crossed-level cosmetics once and never auto-equips them', () => {

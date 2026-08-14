@@ -10,7 +10,7 @@ import type { FeedbackService } from './feedback/feedbackService'
 
 const LEGACY_KEY = 'wellness-rpg:v1'
 
-const PROFILE: UserProfile = { age:30, heightCm:170, weightKg:65, calculationSex:'female', activityLevel:'light', goal:'cut', cutIntensity:'mild' }
+const PROFILE: UserProfile = { age:30, heightCm:170, weightKg:65, calculationSex:'female', activityLevel:'light', goal:'cut', cutIntensity:'mild', exerciseExperience:'experienced' }
 
 function buildState(targetKcal:number): WellnessState {
   return {

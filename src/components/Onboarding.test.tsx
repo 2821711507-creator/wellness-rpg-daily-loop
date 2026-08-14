@@ -30,4 +30,13 @@ describe('Onboarding', () => {
     await userEvent.click(screen.getByRole('button', { name:'시작하기' }))
     expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ goal:'cut', cutIntensity:'aggressive' }))
   })
+
+  it('defaults exercise experience to beginner and lets it be changed to experienced', async () => {
+    const onComplete = vi.fn()
+    render(<Onboarding onComplete={onComplete}/>)
+    expect(screen.getByLabelText('운동 기구를 사용해본 적 있으세요?')).toHaveValue('beginner')
+    await userEvent.selectOptions(screen.getByLabelText('운동 기구를 사용해본 적 있으세요?'), '네, 있어요')
+    await userEvent.click(screen.getByRole('button', { name:'시작하기' }))
+    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ exerciseExperience:'experienced' }))
+  })
 })
