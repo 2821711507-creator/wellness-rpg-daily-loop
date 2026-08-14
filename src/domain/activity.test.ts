@@ -4,7 +4,7 @@ import { activityTemplates } from '../data/activityTemplates'
 
 describe('activity templates', () => {
   it('keeps templates honest about their environment', () => {
-    expect(activityTemplates.find(item => item.environment === 'gym')?.movements.every(item => item.includes('머신'))).toBe(true)
+    expect(activityTemplates.find(item => item.environment === 'gym')?.movements.every(item => item.label.includes('머신'))).toBe(true)
     expect(activityTemplates.find(item => item.environment === 'home')?.equipment).toEqual([])
   })
   it('offers home and walk alternatives', () => {

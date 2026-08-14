@@ -87,6 +87,11 @@ h2{font-size:1.08rem;margin-bottom:0}
 
 /* kcal / duration badges: one consistent accent pill, not per-card colors */
 .card-badge{padding:6px 12px;border-radius:999px;font-size:.85rem;font-weight:800;white-space:nowrap;background:var(--accent-soft);color:var(--accent-strong)}
+.movement-guide{margin-top:6px;padding:10px;border-radius:10px;background:var(--soft);font-size:.82rem;color:var(--muted)}
+.movement-guide p{margin:0 0 6px;color:var(--ink)}
+.movement-guide ol{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+.movement-guide li{display:flex;align-items:center;gap:8px}
+.step-badge{flex:0 0 auto;width:18px;height:18px;display:grid;place-items:center;border-radius:999px;background:var(--accent-soft);color:var(--accent-strong);font-size:.7rem;font-weight:800}
 
 .locked-preview{display:grid;grid-template-columns:1fr repeat(3,minmax(150px,1fr));gap:10px;align-items:center}
 .locked-preview button{display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px;color:var(--muted)}
