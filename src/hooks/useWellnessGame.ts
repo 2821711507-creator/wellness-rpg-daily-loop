@@ -79,7 +79,7 @@ export function useWellnessGame(options: { repository?: WellnessRepository<Welln
     return result
   }
   const generatePlan = (preferences: WeeklyPlanPreferences) => {
-    const result = generateWeeklyPlan({ weekStart: toLocalDateKey(getMonday(now())), preferences, smoothieItems: state.smoothie, activityTemplates })
+    const result = generateWeeklyPlan({ weekStart: toLocalDateKey(getMonday(now())), preferences, smoothieItems: state.smoothie, activityTemplates, profile: state.profile ?? undefined })
     return applyMutation(result.ok ? { ok:true, plan:reconcileApprovedTrainingWeek(result.plan) } : result)
   }
   const complete = (id: string) => setHookState(currentHookState => {

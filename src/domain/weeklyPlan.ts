@@ -1,5 +1,6 @@
-import type { ActivityEnvironment, ActivityTemplate } from './activity'
+import { pickBestTemplate, type ActivityEnvironment, type ActivityTemplate } from './activity'
 import type { SmoothieItem } from './smoothie'
+import type { UserProfile } from './profile'
 import type { WeeklyTrainingGuidance } from './weeklyTrainingGuidance'
 
 export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack'
@@ -41,6 +42,7 @@ export interface GenerateWeeklyPlanInput {
   preferences: WeeklyPlanPreferences
   smoothieItems: SmoothieItem[]
   activityTemplates: ActivityTemplate[]
+  profile?: UserProfile
 }
 
 export type PlanGenerationResult =
@@ -137,8 +139,7 @@ export function generateWeeklyPlan(input: GenerateWeeklyPlanInput): PlanGenerati
     }
   }))
   const activities = environments.map((environment, index) => {
-    const template = input.activityTemplates.find(item => item.id === `${environment}-basic`) ?? input.activityTemplates.find(item => item.environment === environment)
-    if (!template) throw new Error(`${environment} 운동 템플릿이 없습니다.`)
+    const template = pickBestTemplate(environment, input.activityTemplates, input.profile?.goal, input.profile?.exerciseExperience === 'beginner')
     const date = dates[ACTIVITY_DAY_PRIORITY[index]]
     return {
       id: `${planId}-activity-${date}-${index}`,

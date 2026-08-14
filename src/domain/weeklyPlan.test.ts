@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SmoothieItem } from './smoothie'
+import type { UserProfile } from './profile'
 import {
   calculateWeeklySummary,
   formatKoreanDate,
@@ -82,8 +83,8 @@ describe('weekly plan generation', () => {
     activityMix: { gym: 1, home: 1, walk: 1 },
   }
 
-  const generate = (preferences: WeeklyPlanPreferences = basePreferences) =>
-    generateWeeklyPlan({ weekStart: '2026-08-10', preferences, smoothieItems, activityTemplates })
+  const generate = (preferences: WeeklyPlanPreferences = basePreferences, profile?: UserProfile) =>
+    generateWeeklyPlan({ weekStart: '2026-08-10', preferences, smoothieItems, activityTemplates, profile })
 
   it.each([
     [2, ['breakfast', 'dinner']],
@@ -152,6 +153,30 @@ describe('weekly plan generation', () => {
     const first = generate()
     const second = generate()
     expect(first).toEqual(second)
+  })
+
+  it('assigns a goal-matching template when a profile is given', () => {
+    const bulkProfile: UserProfile = { age: 30, heightCm: 175, weightKg: 80, calculationSex: 'male', activityLevel: 'light', goal: 'bulk', exerciseExperience: 'experienced' }
+    const result = generate({ ...basePreferences, activityMix: { gym: 1, home: 0, walk: 0 }, activitiesPerWeek: 2 }, bulkProfile)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const template = activityTemplates.find(item => item.id === result.plan.activities[0].templateId)!
+    expect(template.goalFit).toContain('bulk')
+  })
+
+  it('assigns an equipment-light template for a beginner profile', () => {
+    const beginnerBulkProfile: UserProfile = { age: 30, heightCm: 175, weightKg: 80, calculationSex: 'male', activityLevel: 'light', goal: 'bulk', exerciseExperience: 'beginner' }
+    const result = generate({ ...basePreferences, activityMix: { gym: 1, home: 0, walk: 0 }, activitiesPerWeek: 2 }, beginnerBulkProfile)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.plan.activities[0].templateId).toBe('gym-basic')
+  })
+
+  it('keeps the exact previous assignment when no profile is given', () => {
+    const result = generate({ ...basePreferences, activityMix: { gym: 1, home: 0, walk: 0 }, activitiesPerWeek: 2 })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.plan.activities[0].templateId).toBe('gym-basic')
   })
 })
 
