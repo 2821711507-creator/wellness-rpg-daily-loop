@@ -19,4 +19,5 @@ export const movementGuides: Record<string, MovementGuide> = {
   'rowing-machine': { description: '손잡이를 당기고 미는 전신 유산소 머신이에요.', steps: ['발판에 발을 고정하고 손잡이를 잡아요', '다리를 밀며 손잡이를 몸 쪽으로 당겨요', '팔을 펴고 다리를 굽히며 되돌아와요'] },
   'stair-mill': { description: '계단을 계속 오르는 유산소 머신이에요.', steps: ['손잡이를 가볍게 잡아요', '한 발씩 계단을 밟고 올라가요', '일정한 속도를 유지해요'] },
   'stationary-bike': { description: '제자리에서 페달을 밟는 자전거 운동이에요.', steps: ['안장에 앉아 발을 페달에 올려요', '일정한 속도로 페달을 밟아요', '숨을 편하게 쉬며 유지해요'] },
+  'hip-thrust': { description: '벤치나 바닥에 등을 기대고 엉덩이를 들어 올리는 하체 운동이에요.', steps: ['등 윗부분을 벤치나 바닥에 기대고 무릎을 굽혀요', '엉덩이 힘으로 골반을 들어 올려요', '천천히 엉덩이를 내려요'] },
 }

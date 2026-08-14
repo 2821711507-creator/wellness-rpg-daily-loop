@@ -42,4 +42,10 @@ describe('activityTemplates', () => {
       { label:'편하게 5분' }, { label:'빠르게 20분' }, { label:'천천히 5분' },
     ])
   })
+
+  it('tags gym-lower-core\'s hip thrust movement with its guide', () => {
+    const gymLowerCore = activityTemplates.find(item => item.id === 'gym-lower-core')!
+    const hipThrust = gymLowerCore.movements.find(item => item.label.includes('힙 스러스트'))!
+    expect(hipThrust.guideId).toBe('hip-thrust')
+  })
 })

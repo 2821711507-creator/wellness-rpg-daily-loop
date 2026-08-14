@@ -52,17 +52,24 @@ describe('pickBestTemplate / getRotationCandidates', () => {
     expect(pickBestTemplate('walk', activityTemplates).id).toBe('walk-basic')
   })
 
-  it('prefers an equipment-light, non-hard template for beginners', () => {
+  it('gives beginners the equipment-light default, unchanged from today', () => {
     const pick = pickBestTemplate('gym', activityTemplates, 'bulk', true)
-    // gym-strength-fullbody fits 'bulk' but needs 2 pieces of equipment and is 'hard';
-    // gym-basic fits 'bulk' via goalFit ['maintain','bulk'], needs 1 generic
-    // equipment entry, and is 'moderate' -- the beginner-friendly pick.
     expect(pick.id).toBe('gym-basic')
   })
 
-  it('experienced users see the unfiltered goal-matched pool (may include hard/multi-equipment templates)', () => {
+  it('gives experienced users a more advanced option when the goal has one', () => {
     const pick = pickBestTemplate('gym', activityTemplates, 'bulk', false)
-    expect(pick.goalFit).toContain('bulk')
+    // gym-strength-fullbody fits 'bulk', needs 2 pieces of equipment, and is
+    // 'hard' -- the only 'bulk'-fit gym template that clears the "advanced"
+    // bar, so this is the one place where beginner and experienced now
+    // genuinely diverge.
+    expect(pick.id).toBe('gym-strength-fullbody')
+  })
+
+  it('beginner and experienced diverge on the same goal (the whole point of asking)', () => {
+    const beginnerPick = pickBestTemplate('gym', activityTemplates, 'bulk', true)
+    const experiencedPick = pickBestTemplate('gym', activityTemplates, 'bulk', false)
+    expect(beginnerPick.id).not.toBe(experiencedPick.id)
   })
 
   it('getRotationCandidates never returns an empty list for a real environment', () => {

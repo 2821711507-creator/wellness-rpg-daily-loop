@@ -155,13 +155,12 @@ describe('weekly plan generation', () => {
     expect(first).toEqual(second)
   })
 
-  it('assigns a goal-matching template when a profile is given', () => {
+  it('assigns a goal-matching, more-advanced template for an experienced, bulk-goal profile', () => {
     const bulkProfile: UserProfile = { age: 30, heightCm: 175, weightKg: 80, calculationSex: 'male', activityLevel: 'light', goal: 'bulk', exerciseExperience: 'experienced' }
     const result = generate({ ...basePreferences, activityMix: { gym: 1, home: 0, walk: 0 }, activitiesPerWeek: 2 }, bulkProfile)
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    const template = activityTemplates.find(item => item.id === result.plan.activities[0].templateId)!
-    expect(template.goalFit).toContain('bulk')
+    expect(result.plan.activities[0].templateId).toBe('gym-strength-fullbody')
   })
 
   it('assigns an equipment-light template for a beginner profile', () => {

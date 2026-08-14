@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { movementGuides } from './movementGuides'
 
-const EXPECTED_IDS = ['leg-press', 'chest-press', 'seated-row', 'leg-curl', 'shoulder-press', 'lat-pulldown', 'bicep-curl', 'tricep-pushdown', 'leg-extension', 'calf-raise', 'barbell-squat', 'bench-press', 'barbell-row', 'overhead-press', 'kettlebell-swing', 'rowing-machine', 'stair-mill', 'stationary-bike']
+const EXPECTED_IDS = ['leg-press', 'chest-press', 'seated-row', 'leg-curl', 'shoulder-press', 'lat-pulldown', 'bicep-curl', 'tricep-pushdown', 'leg-extension', 'calf-raise', 'barbell-squat', 'bench-press', 'barbell-row', 'overhead-press', 'kettlebell-swing', 'rowing-machine', 'stair-mill', 'stationary-bike', 'hip-thrust']
 
 describe('movementGuides', () => {
   it('has exactly the expected gym-equipment movement ids', () => {

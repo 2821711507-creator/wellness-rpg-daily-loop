@@ -139,7 +139,7 @@ export function generateWeeklyPlan(input: GenerateWeeklyPlanInput): PlanGenerati
     }
   }))
   const activities = environments.map((environment, index) => {
-    const template = pickBestTemplate(environment, input.activityTemplates, input.profile?.goal, input.profile?.exerciseExperience === 'beginner')
+    const template = pickBestTemplate(environment, input.activityTemplates, input.profile?.goal, input.profile ? input.profile.exerciseExperience === 'beginner' : undefined)
     const date = dates[ACTIVITY_DAY_PRIORITY[index]]
     return {
       id: `${planId}-activity-${date}-${index}`,
