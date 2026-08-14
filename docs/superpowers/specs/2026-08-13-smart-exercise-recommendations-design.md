@@ -23,9 +23,11 @@ actually use it in plain, step-by-step terms.
 
 ## Goals
 
-1. **Goal-aware selection.** Both `generateWeeklyPlan`'s environment→template
-   assignment and `TodayScreen`'s swap rotation prefer templates whose
-   `goalFit` includes the user's own `profile.goal`.
+1. **Goal-aware selection.** `generateWeeklyPlan`'s environment→template
+   assignment prefers templates whose `goalFit` includes the user's own
+   `profile.goal`, instead of always assigning the same fixed template per
+   environment. (`TodayScreen`'s manual swap rotation stays environment-only
+   — see the note under "Goal-aware selection" below for why.)
 2. **Experience-aware selection.** A new onboarding question
    ("운동 기구를 사용해본 적 있으세요?") records whether the user has any
    gym-equipment experience. Beginners are steered toward templates that need
@@ -55,9 +57,9 @@ actually use it in plain, step-by-step terms.
 New helper in `src/domain/activity.ts`:
 
 ```ts
-export function pickBestTemplate(environment: ActivityEnvironment, goal: 'cut'|'maintain'|'bulk', beginnerFriendly: boolean, all: ActivityTemplate[]): ActivityTemplate {
+export function pickBestTemplate(environment: ActivityEnvironment, all: ActivityTemplate[], goal?: 'cut'|'maintain'|'bulk', beginnerFriendly?: boolean): ActivityTemplate {
   const inEnvironment = all.filter(item => item.environment === environment)
-  const goalMatches = inEnvironment.filter(item => item.goalFit.includes(goal))
+  const goalMatches = goal ? inEnvironment.filter(item => item.goalFit.includes(goal)) : inEnvironment
   const pool = goalMatches.length > 0 ? goalMatches : inEnvironment
   if (beginnerFriendly) {
     const simple = pool.filter(item => item.equipment.length <= 1 && item.intensity !== 'hard')
@@ -66,6 +68,15 @@ export function pickBestTemplate(environment: ActivityEnvironment, goal: 'cut'|'
   return pool[0]
 }
 ```
+
+`goal`/`beginnerFriendly` are optional so every existing caller that doesn't
+pass a profile keeps its exact current behavior: with no `goal`, `pool` is
+just `inEnvironment`, and `pool[0]` is the environment's first array entry —
+which is always `gym-basic`/`home-basic`/`walk-basic` per the append-only
+ordering guarantee from the prior feature. This means `GenerateWeeklyPlanInput`
+can add `profile` as an *optional* field (below) rather than updating every
+one of the ~8 existing test call sites across the codebase that construct a
+`GenerateWeeklyPlanInput` without one.
 
 `beginnerFriendly` uses `equipment.length <= 1 && intensity !== 'hard'` as the
 proxy for "won't overwhelm someone with zero gym experience" — not a new
@@ -79,16 +90,23 @@ guide content (goal 3) is what makes that fallback safe to show.
 
 **`generateWeeklyPlan`** (`src/domain/weeklyPlan.ts`) replaces its
 `input.activityTemplates.find(item => item.id === \`${environment}-basic\`) ?? ...`
-lookup with `pickBestTemplate(environment, input.profile.goal, input.profile.exerciseExperience === 'beginner', input.activityTemplates)`.
-`GenerateWeeklyPlanInput` gains a `profile: UserProfile` field (currently the
-function receives no profile at all).
+lookup with `pickBestTemplate(environment, input.activityTemplates, input.profile?.goal, input.profile?.exerciseExperience === 'beginner')`.
+`GenerateWeeklyPlanInput` gains an **optional** `profile?: UserProfile` field
+(currently the function receives no profile at all) — optional so the
+existing test call sites that don't construct one keep working unchanged;
+only `useWellnessGame.ts`'s real call site is updated to pass the signed-in
+user's actual profile.
 
-**`TodayScreen`'s `next()`** applies the same goal/experience filter on top of
-its existing environment filter, before falling back to the full
-environment-filtered pool if the stricter filter would produce an empty
-list (it can't currently, since every environment has at least one
-`goalFit`-tagged, equipment-light template, but the fallback keeps the
-function total rather than assuming that stays true forever).
+**`TodayScreen`'s `next()` stays environment-filtered only** (already
+shipped), not goal-filtered. Reasoning found during planning: the current
+activity a user is looking at was itself picked by the (now goal-aware)
+generator, but a manual "다른 운동 선택" click is the user actively browsing
+alternatives *within an environment they already chose* — narrowing that
+browse list by goal as well risks silently hiding the very template the
+plan just assigned (e.g. `gym-basic`'s `goalFit` is `['maintain','bulk']`,
+so a `cut`-goal user's own assigned gym activity wouldn't even appear in its
+own swap list). The automatic assignment is where "smart" belongs; manual
+browsing stays a full, honest list of what's available in that environment.
 
 ## 2. Experience-aware onboarding
 
@@ -154,14 +172,14 @@ implementation plan's exact code.)
   users see the unfiltered pool.
 - `src/domain/profile.test.ts`: `normalizeProfile` defaults missing
   `exerciseExperience` to `'beginner'`.
-- `src/domain/weeklyPlan.test.ts`: `generateWeeklyPlan` now requires
-  `profile` in its input and assigns per goal/experience instead of always
-  `${environment}-basic` — update existing tests that assert exact
-  `gym-basic`/`home-basic`/`walk-basic` assignments to pass a matching
-  profile, add a new test proving a `bulk`-goal profile gets a different
-  gym template than a `cut`-goal profile when both fit.
-- `src/components/TodayScreen.test.tsx`: extend the swap-rotation tests for
-  goal/experience filtering.
+- `src/domain/weeklyPlan.test.ts`: `generateWeeklyPlan` accepts an optional
+  `profile` and assigns per goal/experience when one is given, falling back
+  to its exact previous `${environment}-basic` behavior when it's omitted
+  (existing tests need no changes) — add new tests proving a `bulk`-goal
+  profile gets a different gym template than a `cut`-goal profile when both
+  fit, and a `beginner`-experience profile gets the equipment-light option.
+- `src/components/TodayScreen.test.tsx`: unchanged (goal filtering doesn't
+  reach the swap rotation — see the "Goal-aware selection" note above).
 - `src/components/Onboarding.test.tsx`: new select renders and updates
   `profile.exerciseExperience`.
 - `src/components/ActivityCard.test.tsx`: a movement with a `guideId` shows
